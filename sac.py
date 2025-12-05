@@ -1,12 +1,11 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px
 import os
 import json
 from datetime import datetime
 
 # ==============================================================================
-# 1. CONFIGURAÇÕES GERAIS
+# 1. CONFIGURAÇÕES GERAIS E AMBIENTE
 # ==============================================================================
 st.set_page_config(
     page_title="S.A.C. - PET Engenharia Química", 
@@ -61,6 +60,7 @@ st.markdown("""
     }
 
     /* ELEMENTOS DE FORMULÁRIO */
+    /* Botões */
     div.stButton > button {
         background-color: #002060 !important;
         color: white !important;
@@ -82,6 +82,7 @@ st.markdown("""
         color: white !important;
     }
 
+    /* Caixas de Texto (Input/Textarea) */
     .stTextInput input, .stTextArea textarea {
         border: 1px solid #ced4da;
         border-radius: 4px;
@@ -91,7 +92,7 @@ st.markdown("""
         box-shadow: 0 0 0 1px #002060;
     }
 
-    /* CARD DE PERGUNTA */
+    /* CARD DE PERGUNTA (Layout) */
     .pergunta-card {
         background-color: #fcfcfc;
         border: 1px solid #e9ecef;
@@ -124,13 +125,14 @@ st.markdown("""
         color: #002060 !important;
     }
 
+    /* OCULTAR MENU PADRÃO DO STREAMLIT */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     </style>
 """, unsafe_allow_html=True)
 
 # ==============================================================================
-# 3. CABEÇALHO INSTITUCIONAL
+# 3. CABEÇALHO INSTITUCIONAL (SEM IMAGEM)
 # ==============================================================================
 st.markdown("""
     <div class="header-institucional">
@@ -141,12 +143,13 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==============================================================================
-# 4. LÓGICA DE GERENCIAMENTO
+# 4. LÓGICA DE GERENCIAMENTO DE ESTADO E PERSISTÊNCIA
 # ==============================================================================
 if 'form_key' not in st.session_state:
     st.session_state.form_key = 0
 
 def limpar_formulario():
+    """Reseta o formulário e limpa o backup após salvamento com sucesso."""
     st.session_state.form_key += 1
     if os.path.exists(ARQUIVO_BACKUP):
         try:
@@ -155,114 +158,84 @@ def limpar_formulario():
             pass
 
 def renderizar_pergunta(texto_pergunta, id_unica):
-    """Gera o bloco visual da pergunta com Card HTML"""
-    with st.container():
-        st.markdown(f"""
-        <div class="pergunta-card">
-            <div class="pergunta-texto">{texto_pergunta}</div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        col_input, col_obs = st.columns([0.60, 0.40])
-        
-        with col_input:
-            val = st.select_slider(
-                "Nível de Competência Desenvolvida", 
-                options=["0", "1", "2", "3", "4", "5"], 
-                value="0", 
-                key=f"nota_{id_unica}_{st.session_state.form_key}",
-                # TOOLTIP: Dica flutuante ao passar o mouse
-                help="Consulte a aba '📘 Guia' na lateral para detalhes da escala." 
-            )
-        
-        with col_obs:
-            obs = st.text_input(
-                "Justificativa e Observações", 
-                placeholder="Insira comentários pertinentes...", 
-                key=f"obs_{id_unica}_{st.session_state.form_key}"
-            )
+    """
+    Gera o bloco visual da pergunta.
+    Retorna: (Valor do Slider, Texto da Observação)
+    """
+    # Container visual (Card HTML)
+    st.markdown(f"""
+    <div class="pergunta-card">
+        <div class="pergunta-texto">{texto_pergunta}</div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    col_input, col_obs = st.columns([0.60, 0.40])
+    
+    with col_input:
+        val = st.select_slider(
+            "Nível de Competência Desenvolvida", 
+            options=["0", "1", "2", "3", "4", "5"], 
+            value="0", 
+            key=f"nota_{id_unica}_{st.session_state.form_key}",
+            help="0 = Nenhuma contribuição | 5 = Máxima contribuição"
+        )
+    
+    with col_obs:
+        # Texto não é mais marcado como opcional
+        obs = st.text_input(
+            "Justificativa e Observações", 
+            placeholder="Insira comentários pertinentes...", 
+            key=f"obs_{id_unica}_{st.session_state.form_key}"
+        )
         
     return int(val), obs
 
 # ==============================================================================
-# 5. BARRA LATERAL COM ABAS (IDENTIFICAÇÃO + GUIA)
+# 5. BARRA LATERAL: IDENTIFICAÇÃO DO DISCENTE
 # ==============================================================================
 respostas = {}
 
 with st.sidebar:
-    # Criação das Abas na Sidebar
-    tab_form, tab_guia = st.tabs(["👤 Identificação", "📘 Guia de Ajuda"])
+    st.markdown("### 👤 IDENTIFICAÇÃO")
+    st.markdown("---")
     
-    # --- ABA 1: FORMULÁRIO DE IDENTIFICAÇÃO ---
-    with tab_form:
-        st.markdown("### DADOS DO REGISTRO")
-        
-        # Lista em Ordem Alfabética Rigorosa
-        lista_petianos = [
-            "", # Campo em branco
-            "Ana Carolina",
-            "Ana Clara", 
-            "Ana Júlia",
-            "Eric Rullian", 
-            "Gildelandio Junior", 
-            "Lucas Mossmann (trainee)",
-            "Pedro Paulo"
-        ]
-        
-        respostas["Petiano_Responsavel"] = st.selectbox(
-            "Petiano Responsável", 
-            lista_petianos,
-            key=f"pet_{st.session_state.form_key}"
-        )
-        
-        respostas["Nome"] = st.text_input("Nome Completo do Discente", key=f"nome_{st.session_state.form_key}")
-        respostas["Matricula"] = st.text_input("Número de Matrícula", key=f"mat_{st.session_state.form_key}")
-        
-        lista_semestres = [f"{i}º Semestre" for i in range(1, 11)]
-        respostas["Semestre"] = st.selectbox("Semestre Letivo Atual", lista_semestres, key=f"sem_{st.session_state.form_key}")
-        
-        respostas["Curriculo"] = st.radio(
-            "Matriz Curricular", 
-            ["Novo (2023.1)", "Antigo (2005.1)"], 
-            key=f"curr_{st.session_state.form_key}"
-        )
-        
-        respostas["Data_Registro"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        
-        st.markdown("---")
-        st.success("✅ Backup Ativo")
-        st.caption("Progresso salvo automaticamente.")
-
-    # --- ABA 2: GUIA DE PREENCHIMENTO (NOVA) ---
-    with tab_guia:
-        st.markdown("### 📘 GUIA DO AVALIADOR")
-        
-        st.info("""
-        **Objetivo:** Este sistema visa coletar dados precisos sobre o impacto das disciplinas na formação de competências do discente.
-        """)
-        
-        st.markdown("#### 📏 Escala de Avaliação (0-5)")
-        st.markdown("""
-        * **0 - Nenhuma Contribuição:** A disciplina/atividade não abordou ou não contribuiu para esta competência.
-        * **1 - Mínima:** Houve menção superficial, mas sem profundidade prática ou teórica.
-        * **2 - Baixa:** Conceitos apresentados, mas com pouca fixação ou aplicabilidade.
-        * **3 - Média:** Contribuição regular. O aluno compreende o básico, mas falta domínio.
-        * **4 - Alta:** Boa base teórica e prática. O aluno sente-se seguro no tema.
-        * **5 - Máxima:** Excelência. Domínio pleno da competência graças à disciplina.
-        """)
-        
-        st.markdown("---")
-        st.markdown("#### 📝 Sobre os Comentários")
-        st.markdown("""
-        O campo **"Justificativa e Observações"** é fundamental para análise qualitativa. Utilize-o para:
-        * Citar exemplos de projetos.
-        * Mencionar dificuldades específicas.
-        * Sugerir melhorias na ementa.
-        """)
-        
-        st.markdown("---")
-        st.markdown("#### 📞 Suporte")
-        st.caption("Em caso de dúvidas técnicas ou sobre o preenchimento, contate o PET Engenharia Química.")
+    # Lista em Ordem Alfabética Rigorosa
+    lista_petianos = [
+        "", # Campo em branco para forçar seleção
+        "Ana Carolina",
+        "Ana Clara", 
+        "Ana Júlia",
+        "Eric Rullian", 
+        "Gildelandio Junior", 
+        "Lucas Mossmann (trainee)",
+        "Pedro Paulo"
+    ]
+    
+    respostas["Petiano_Responsavel"] = st.selectbox(
+        "Petiano Responsável pela Aplicação", 
+        lista_petianos,
+        key=f"pet_{st.session_state.form_key}"
+    )
+    
+    respostas["Nome"] = st.text_input("Nome Completo do Discente", key=f"nome_{st.session_state.form_key}")
+    respostas["Matricula"] = st.text_input("Número de Matrícula", key=f"mat_{st.session_state.form_key}")
+    
+    # Semestres de 1 a 10
+    lista_semestres = [f"{i}º Semestre" for i in range(1, 11)]
+    respostas["Semestre"] = st.selectbox("Semestre Letivo Atual", lista_semestres, key=f"sem_{st.session_state.form_key}")
+    
+    respostas["Curriculo"] = st.radio(
+        "Matriz Curricular", 
+        ["Novo (2023.1)", "Antigo (2005.1)"], 
+        key=f"curr_{st.session_state.form_key}"
+    )
+    
+    respostas["Data_Registro"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    st.markdown("---")
+    st.markdown("**Status do Sistema:**")
+    st.success("✅ Backup Automático Ativo")
+    st.caption("Os dados são salvos localmente a cada interação para evitar perda de dados.")
 
 # ==============================================================================
 # 6. CONTEÚDO PRINCIPAL (ABAS E QUESTÕES)
@@ -275,13 +248,15 @@ abas = [
     "Disciplinas Profissionais", 
     "Disciplinas Avançadas", 
     "Reflexão Final", 
-    "📊 Painel Gerencial"
+    "📊 Painel de Resultados"
 ]
 tabs = st.tabs(abas)
 
 # --- ABA 1: GERAIS ---
 with tabs[0]:
     st.markdown("### 1. COMPETÊNCIAS TÉCNICAS E GERAIS")
+    st.info("Avalie de 0 a 5 o nível de desenvolvimento das competências abaixo.")
+    
     respostas["1. Investigação e Análise"], respostas["Obs_1"] = renderizar_pergunta("1. Projetar e conduzir experimentos e interpretar resultados", "q1")
     respostas["2. Ferramentas e Técnicas"], respostas["Obs_2"] = renderizar_pergunta("2. Desenvolver e/ou utilizar novas ferramentas e técnicas", "q2")
     respostas["3. Concepção de Sistemas"], respostas["Obs_3"] = renderizar_pergunta("3. Conceber, projetar e analisar sistemas, produtos e processos", "q3")
@@ -291,7 +266,7 @@ with tabs[0]:
     respostas["7. Trabalho em Equipe"], respostas["Obs_7"] = renderizar_pergunta("7. Trabalhar e liderar equipes profissionais e multidisciplinares", "q7")
     respostas["8. Ética Profissional"], respostas["Obs_8"] = renderizar_pergunta("8. Aplicar ética e legislação no exercício profissional", "q8")
 
-# --- ABA 2: ESPECÍFICAS ---
+# --- ABA 2: COMPETÊNCIAS ESPECÍFICAS ---
 with tabs[1]:
     st.markdown("### 2. COMPETÊNCIAS ESPECÍFICAS DA ENGENHARIA QUÍMICA")
     respostas["9. Fundamentos Matemáticos"], respostas["Obs_9"] = renderizar_pergunta("9. Aplicar conhecimentos matemáticos, científicos e tecnológicos", "q9")
@@ -308,7 +283,7 @@ with tabs[1]:
     respostas["18. Projeto Básico"], respostas["Obs_18"] = renderizar_pergunta("18. Aplicação de conhecimentos em projeto básico e dimensionamento", "q18")
     respostas["19. Melhoria de Processos"], respostas["Obs_19"] = renderizar_pergunta("19. Execução de projetos de produção e melhorias de processos", "q19")
 
-# --- ABA 3: BÁSICAS ---
+# --- ABA 3: DISCIPLINAS BÁSICAS ---
 with tabs[2]:
     st.markdown("### 3. DISCIPLINAS DE FORMAÇÃO BÁSICA")
     
@@ -354,7 +329,7 @@ with tabs[3]:
         respostas["Projetos: Gestão Industrial"], respostas["Obs_Proj1"] = renderizar_pergunta("56. Projetos Industriais e Gestão", "proj_56")
         respostas["Projetos: Ética e Humanidades"], respostas["Obs_Proj2"] = renderizar_pergunta("57. Ética, Meio Ambiente e Humanidades", "proj_57")
 
-# --- ABA 5: AVANÇADAS ---
+# --- ABA 5: DISCIPLINAS AVANÇADAS ---
 with tabs[4]:
     st.markdown("### 5. DISCIPLINAS AVANÇADAS E COMPLEMENTARES")
     
@@ -479,31 +454,8 @@ with tabs[6]:
             
             st.markdown("---")
 
-            if len(cols_notas) > 0:
-                st.markdown("#### Classificação de Competências (Média Geral)")
-                medias = df[cols_notas].mean().sort_values()
-                
-                # Gráfico com cores vivas (Traffic Light Scale)
-                fig = px.bar(
-                    medias, 
-                    orientation='h', 
-                    x=medias.values, 
-                    y=medias.index,
-                    text_auto='.2f', 
-                    color=medias.values,
-                    color_continuous_scale='RdYlGn', # Vermelho -> Amarelo -> Verde
-                    labels={'index': 'Competência/Disciplina', 'x': 'Média (0-5)'}
-                )
-                # Layout Limpo
-                fig.update_layout(
-                    height=1200, 
-                    paper_bgcolor='rgba(0,0,0,0)', 
-                    plot_bgcolor='rgba(0,0,0,0)',
-                    font=dict(family="Segoe UI, sans-serif", size=12, color="#2c3e50")
-                )
-                st.plotly_chart(fig, use_container_width=True)
-
-            st.markdown("#### Base de Dados Detalhada")
+            # Tabela Simplificada (Sem Gráficos)
+            st.markdown("#### Base de Dados Detalhada (Registro Geral)")
             if len(cols_notas) > 0:
                 # Tabela estilizada (Heatmap)
                 st.dataframe(
@@ -515,10 +467,10 @@ with tabs[6]:
             else:
                 st.dataframe(df)
 
-            # Botão de Download
+            # Botão de Download (Excel/CSV)
             csv = df.to_csv(index=False).encode('utf-8-sig')
             st.download_button(
-                label="📥 Exportar Relatório Completo (.csv)", 
+                label="📥 Baixar Tabela Completa (Excel/CSV)", 
                 data=csv, 
                 file_name=f"relatorio_sac_{datetime.now().strftime('%Y%m%d')}.csv", 
                 mime="text/csv"
