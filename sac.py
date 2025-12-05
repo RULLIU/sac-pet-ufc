@@ -147,7 +147,6 @@ if 'form_key' not in st.session_state:
 
 def obter_hora_ceara():
     """Função para pegar a hora certa (UTC-3) independente do servidor."""
-    # Pega a hora atual UTC e subtrai 3 horas
     fuso_ceara = timezone(timedelta(hours=-3))
     agora = datetime.now(fuso_ceara)
     return agora.strftime("%Y-%m-%d %H:%M:%S")
@@ -177,7 +176,7 @@ def renderizar_pergunta(texto_pergunta, id_unica):
                 options=["0", "1", "2", "3", "4", "5"], 
                 value="0", 
                 key=f"nota_{id_unica}_{st.session_state.form_key}",
-                help="0 = Nenhuma contribuição | 5 = Máxima contribuição"
+                help="Consulte o Guia de Ajuda para os critérios de avaliação."
             )
         
         with col_obs:
@@ -190,13 +189,14 @@ def renderizar_pergunta(texto_pergunta, id_unica):
     return int(val), obs
 
 # ==============================================================================
-# 5. BARRA LATERAL (IDENTIFICAÇÃO)
+# 5. BARRA LATERAL (IDENTIFICAÇÃO E GUIA)
 # ==============================================================================
 respostas = {}
 
 with st.sidebar:
     tab_form, tab_guia = st.tabs(["👤 Identificação", "📘 Guia de Ajuda"])
     
+    # --- ABA 1: FORMULÁRIO ---
     with tab_form:
         st.markdown("### DADOS DO REGISTRO")
         
@@ -229,22 +229,43 @@ with st.sidebar:
             key=f"curr_{st.session_state.form_key}"
         )
         
-        # USA A HORA CORRIGIDA (UTC-3)
         respostas["Data_Registro"] = obter_hora_ceara()
         
         st.markdown("---")
         st.success("✅ Backup Ativo")
         st.caption("Progresso salvo automaticamente.")
 
+    # --- ABA 2: GUIA DE AJUDA ATUALIZADO ---
     with tab_guia:
-        st.markdown("### 📘 GUIA DO AVALIADOR")
-        st.info("O objetivo é avaliar o impacto das disciplinas na formação.")
+        st.markdown("### 📘 MANUAL DO APLICADOR")
+        st.info("Este guia visa padronizar a coleta de dados do S.A.C.")
+        
+        st.markdown("#### 1. CRITÉRIOS DE AVALIAÇÃO (ESCALA 0-5)")
         st.markdown("""
-        **Escala (0-5):**
-        * **0:** Nenhuma contribuição.
-        * **1-2:** Contribuição baixa.
-        * **3:** Média.
-        * **4-5:** Alta/Excelente contribuição.
+        O discente deve avaliar o quanto a disciplina contribuiu para a competência:
+        
+        * **0 - Nula:** O tema não foi abordado ou não houve contribuição.
+        * **1 - Muito Baixa:** Houve apenas menção teórica superficial.
+        * **2 - Baixa:** Conceitos apresentados, mas sem fixação ou prática.
+        * **3 - Regular:** O aluno compreende o básico, mas sente falta de profundidade.
+        * **4 - Alta:** Boa base teórica e prática. O aluno sente-se seguro.
+        * **5 - Excelente:** Domínio pleno. A disciplina integrou teoria e prática de forma exemplar.
+        """)
+        
+        st.markdown("---")
+        st.markdown("#### 2. SOBRE AS OBSERVAÇÕES")
+        st.markdown("""
+        O campo de texto ao lado da nota deve ser utilizado para:
+        * Justificar notas extremas (0, 1 ou 5).
+        * Citar projetos ou aulas específicas que marcaram o aprendizado.
+        * Apontar redundâncias ou falta de pré-requisitos.
+        """)
+        
+        st.markdown("---")
+        st.markdown("#### 3. SUPORTE TÉCNICO")
+        st.warning("""
+        **Erro de Permissão?**
+        Se ao salvar aparecer erro de permissão, verifique se a planilha Excel não está aberta no computador. Feche-a e tente novamente.
         """)
 
 # ==============================================================================
@@ -409,32 +430,30 @@ except:
     pass
 
 # ==============================================================================
-# 8. ABA DASHBOARD (CORRIGIDA)
+# 8. ABA DASHBOARD (CORRIGIDA E SIMPLIFICADA)
 # ==============================================================================
 with tabs[6]:
     st.markdown("### 📊 PAINEL DE INDICADORES DE DESEMPENHO")
     
     if os.path.exists(ARQUIVO_DB):
         try:
-            # Lendo com Matrícula como string para não somar
+            # Força Matrícula como string
             df = pd.read_csv(ARQUIVO_DB, dtype={'Matricula': str})
             
             col1, col2, col3 = st.columns(3)
             col1.metric("Total de Discentes Avaliados", len(df))
             
-            # --- CORREÇÃO DA MÉDIA BUGADA ---
-            # Identifica colunas que NÃO são de identificação para calcular média
+            # --- FILTRAGEM DE DADOS NUMÉRICOS PARA MÉDIA ---
             colunas_ignorar = [
                 'Nome', 'Matricula', 'Semestre', 'Curriculo', 
                 'Data_Registro', 'Petiano_Responsavel'
             ]
-            # Pega só colunas que não estão na lista de ignorar e não começam com Obs ou Auto
             colunas_numericas = [
                 c for c in df.columns 
                 if c not in colunas_ignorar 
                 and not c.startswith("Obs") 
                 and not c.startswith("Auto")
-                and not c.startswith("Justificativa") # Garantindo que texto não entra
+                and not c.startswith("Justificativa") 
                 and not c.startswith("Contribuição")
                 and not c.startswith("Exemplos")
                 and not c.startswith("Competências")
@@ -442,26 +461,24 @@ with tabs[6]:
                 and not c.startswith("Comentários")
             ]
 
-            # Converte para numérico (garantia)
             df_num = df[colunas_numericas].apply(pd.to_numeric, errors='coerce')
             
             if not df_num.empty:
                 media_geral = df_num.mean().mean()
                 col2.metric("Média Geral de Competências", f"{media_geral:.2f}/5.0")
             
-            # --- CORREÇÃO DA DATA CONFUSA ---
+            # --- DATA FORMATADA (BR) ---
             if 'Data_Registro' in df.columns:
                 last_dt = pd.to_datetime(df['Data_Registro']).max()
-                # Formato Brasileiro: Dia/Mês/Ano às Hora:Minuto
                 data_formatada = last_dt.strftime("%d/%m/%Y às %H:%M")
                 col3.metric("Última Atualização do Banco", data_formatada)
             
             st.markdown("---")
 
             st.markdown("#### Base de Dados Detalhada (Registro Geral)")
-            # Tabela Simples (Sem cores/gradiente para evitar erros de biblioteca)
-            st.dataframe(df, use_container_width=True)
+            st.dataframe(df, use_container_width=True, height=500)
 
+            # Download CSV
             csv = df.to_csv(index=False).encode('utf-8-sig')
             st.download_button(
                 label="📥 Baixar Tabela Completa (Excel/CSV)", 
@@ -473,3 +490,4 @@ with tabs[6]:
             st.error(f"Erro ao ler o banco de dados: {e}")
     else:
         st.info("Ainda não há dados registrados no sistema. Realize o primeiro preenchimento para visualizar os indicadores.")
+
