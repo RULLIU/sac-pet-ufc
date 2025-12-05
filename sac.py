@@ -18,72 +18,128 @@ ARQUIVO_DB = "respostas_sac_deq.csv"
 ARQUIVO_BACKUP = "_backup_autosave.json"
 
 # ==============================================================================
-# 2. ESTILO VISUAL (CSS)
+# 2. ESTILO VISUAL RESPONSIVO (CLARO / ESCURO)
 # ==============================================================================
 st.markdown("""
     <style>
-    /* RESET */
-    .stApp { background-color: #ffffff !important; font-family: 'Segoe UI', sans-serif; }
-    p, label, span, div, li, .stMarkdown { color: #2c3e50 !important; }
-    h1, h2, h3, h4, h5, h6 { color: #002060 !important; font-weight: 800 !important; text-transform: uppercase; }
+    /* --- DEFINIÇÕES DE VARIÁVEIS DE COR (ADAPTAÇÃO AUTOMÁTICA) --- */
+    
+    /* MODO CLARO (PADRÃO) */
+    :root {
+        --bg-color: #ffffff;
+        --card-bg: #f8f9fa;
+        --text-color: #2c3e50;
+        --primary-pet: #002060; /* Azul Escuro */
+        --border-color: #e9ecef;
+    }
 
-    /* MENU DE NAVEGAÇÃO */
-    div[role="radiogroup"] {
-        background-color: #f8f9fa;
-        padding: 10px;
-        border-radius: 8px;
-        border: 1px solid #ddd;
-        display: flex;
-        justify-content: center;
-        margin-bottom: 20px;
+    /* MODO ESCURO (DETECTADO PELO NAVEGADOR/STREAMLIT) */
+    @media (prefers-color-scheme: dark) {
+        :root {
+            --bg-color: #0e1117;
+            --card-bg: #262730; /* Cinza escuro do Streamlit */
+            --text-color: #fafafa;
+            --primary-pet: #90caf9; /* Azul Claro para contraste */
+            --border-color: #41444e;
+        }
+    }
+
+    /* APLICAÇÃO GLOBAL */
+    .stApp {
+        background-color: var(--bg-color);
+        font-family: 'Segoe UI', sans-serif;
     }
     
-    /* BOTÃO AVANÇAR */
-    .stButton button {
-        border-radius: 6px;
-        height: 3em;
-        font-weight: 700;
+    p, label, span, div, li, .stMarkdown {
+        color: var(--text-color);
+    }
+
+    /* TÍTULOS */
+    h1, h2, h3, h4, h5, h6 {
+        color: var(--primary-pet) !important;
+        font-weight: 800 !important;
         text-transform: uppercase;
-        width: 100%;
-        transition: 0.3s;
-    }
-    
-    /* Botão Principal */
-    .botao-final button {
-        background-color: #002060 !important;
-        color: white !important;
-        height: 4.5em;
-    }
-    
-    /* Botão Avançar */
-    .botao-avancar button {
-        background-color: #ffffff !important;
-        color: #002060 !important;
-        border: 2px solid #002060 !important;
-    }
-    .botao-avancar button:hover {
-        background-color: #002060 !important;
-        color: white !important;
     }
 
-    /* CARD DE PERGUNTA */
+    /* CABEÇALHO INSTITUCIONAL */
+    .header-institucional {
+        border-bottom: 3px solid var(--primary-pet);
+        padding-bottom: 20px;
+        margin-bottom: 30px;
+        text-align: center;
+    }
+    .header-titulo {
+        font-size: 2.5rem;
+        color: var(--primary-pet);
+        font-weight: 800;
+        margin: 0;
+    }
+    .header-subtitulo {
+        font-size: 1.2rem;
+        font-weight: 600;
+        margin-top: 5px;
+        opacity: 0.8; /* Suaviza no modo escuro */
+    }
+
+    /* CARD DE PERGUNTA (Inteligente) */
     .pergunta-card {
-        background-color: #fcfcfc;
-        border: 1px solid #e9ecef;
-        border-left: 6px solid #002060;
-        border-radius: 6px;
+        background-color: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-left: 6px solid var(--primary-pet);
+        border-radius: 8px;
         padding: 20px;
         margin-bottom: 20px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
     .pergunta-texto {
         font-size: 1.15rem;
         font-weight: 700;
-        color: #002060 !important;
+        color: var(--primary-pet) !important;
         margin-bottom: 15px;
     }
 
-    #MainMenu {visibility: hidden;} footer {visibility: hidden;}
+    /* BOTÕES */
+    div.stButton > button {
+        background-color: #002060 !important; /* Mantém azul escuro no botão */
+        color: white !important;
+        border-radius: 6px;
+        height: 3.5em;
+        font-weight: 700;
+        border: 1px solid white; /* Borda branca para destacar no modo escuro */
+        width: 100%;
+        text-transform: uppercase;
+        transition: 0.3s;
+    }
+    div.stButton > button:hover {
+        background-color: #003399 !important;
+        transform: scale(1.02);
+    }
+    
+    /* BOTÃO SECUNDÁRIO (PRÓXIMO) */
+    .botao-avancar button {
+        background-color: transparent !important;
+        border: 2px solid var(--primary-pet) !important;
+        color: var(--primary-pet) !important;
+    }
+    .botao-avancar button:hover {
+        background-color: var(--primary-pet) !important;
+        color: var(--bg-color) !important; /* Inverte a cor no hover */
+    }
+
+    /* NAV BAR (MENU SUPERIOR) */
+    div[role="radiogroup"] {
+        background-color: var(--card-bg);
+        padding: 10px;
+        border-radius: 8px;
+        border: 1px solid var(--border-color);
+        display: flex;
+        justify-content: center;
+        margin-bottom: 20px;
+    }
+
+    /* MENUS DO STREAMLIT */
+    #MainMenu {visibility: hidden;} 
+    footer {visibility: hidden;}
     </style>
 """, unsafe_allow_html=True)
 
@@ -91,10 +147,10 @@ st.markdown("""
 # 3. CABEÇALHO
 # ==============================================================================
 st.markdown("""
-    <div style="text-align: center; border-bottom: 4px solid #002060; padding-bottom: 20px; margin-bottom: 30px;">
-        <div style="font-size: 2.5rem; color: #002060; font-weight: 800;">S.A.C.</div>
-        <div style="font-size: 1.2rem; color: #555; font-weight: 600;">SISTEMA DE AVALIAÇÃO CURRICULAR</div>
-        <div style="font-size: 0.9rem; color: #666;">DEPARTAMENTO DE ENGENHARIA QUÍMICA - UFC</div>
+    <div class="header-institucional">
+        <div class="header-titulo">S.A.C.</div>
+        <div class="header-subtitulo">SISTEMA DE AVALIAÇÃO CURRICULAR</div>
+        <div style="font-size: 0.9rem; margin-top: 5px; opacity: 0.7;">DEPARTAMENTO DE ENGENHARIA QUÍMICA - UFC</div>
     </div>
 """, unsafe_allow_html=True)
 
@@ -122,6 +178,7 @@ def navegar_proxima():
         indice_atual = SECOES.index(st.session_state.navegacao_atual)
         if indice_atual < len(SECOES) - 1:
             st.session_state.navegacao_atual = SECOES[indice_atual + 1]
+            st.rerun() # Força atualização imediata
     except:
         pass
 
@@ -138,6 +195,7 @@ def obter_hora_ceara():
 
 def renderizar_pergunta(texto_pergunta, id_unica):
     with st.container():
+        # Usa classes CSS variáveis para cor
         st.markdown(f"<div class='pergunta-card'><div class='pergunta-texto'>{texto_pergunta}</div></div>", unsafe_allow_html=True)
         c1, c2 = st.columns([0.60, 0.40])
         with c1:
@@ -177,7 +235,7 @@ secao_ativa = st.radio(
 st.markdown("---")
 
 # ==============================================================================
-# 7. CONTEÚDO DAS SEÇÕES (CADEIA IF/ELIF CORRIGIDA)
+# 7. CONTEÚDO DAS SEÇÕES
 # ==============================================================================
 
 # --- SEÇÃO 1 ---
@@ -321,7 +379,6 @@ elif secao_ativa == SECOES[5]:
     respostas["Comentários Finais"] = st.text_area("Comentários Finais", key=f"obsf_{st.session_state.form_key}")
 
     st.markdown("---")
-    st.markdown('<div class="botao-final">', unsafe_allow_html=True)
     if st.button("💾 FINALIZAR E REGISTRAR AVALIAÇÃO", type="primary"):
         if not respostas["Nome"]:
             st.error("⚠️ ERRO: Preencha o NOME DO DISCENTE na barra lateral.")
@@ -343,7 +400,6 @@ elif secao_ativa == SECOES[5]:
                 st.error("❌ ERRO: O arquivo Excel está aberto. Feche-o e tente novamente.")
             except Exception as e:
                 st.error(f"❌ ERRO INESPERADO: {e}")
-    st.markdown('</div>', unsafe_allow_html=True)
 
 # --- SEÇÃO 7 (DASHBOARD) ---
 elif secao_ativa == SECOES[6]:
