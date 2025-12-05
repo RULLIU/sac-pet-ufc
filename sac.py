@@ -18,48 +18,68 @@ ARQUIVO_DB = "respostas_sac_deq.csv"
 ARQUIVO_BACKUP = "_backup_autosave.json"
 
 # ==============================================================================
-# 2. ESTILO VISUAL INSTITUCIONAL (CSS)
+# 2. ESTILO VISUAL HÍBRIDO (CLARO/ESCURO)
 # ==============================================================================
 st.markdown("""
     <style>
-    /* RESET E FUNDO */
-    .stApp {
-        background-color: #ffffff !important;
-        font-family: 'Segoe UI', 'Roboto', Helvetica, Arial, sans-serif;
-    }
-
-    /* TIPOGRAFIA E CORES */
+    /* --- COMPATIBILIDADE MODO CLARO E ESCURO --- */
+    
+    /* Títulos Principais (H1-H6) */
     h1, h2, h3, h4, h5, h6 {
-        color: #002060 !important; /* Azul Institucional Escuro */
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         font-weight: 800 !important;
         text-transform: uppercase;
         letter-spacing: 0.5px;
     }
+
+    /* CARD DE PERGUNTA (ADAPTÁVEL) */
+    .pergunta-card {
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+        border-left: 6px solid #002060; /* Borda sempre Azul PET */
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
     
-    p, label, span, div, li, .stMarkdown {
-        color: #2c3e50 !important; /* Cinza Escuro para leitura */
+    .pergunta-texto {
+        font-size: 1.15rem;
+        font-weight: 700;
+        margin-bottom: 10px;
     }
 
-    /* CABEÇALHO PERSONALIZADO */
+    /* CABEÇALHO INSTITUCIONAL */
     .header-institucional {
-        border-bottom: 4px solid #002060;
+        border-bottom: 3px solid #002060;
         padding-bottom: 20px;
         margin-bottom: 30px;
         text-align: center;
     }
-    .header-titulo {
-        font-size: 2.5rem;
-        color: #002060;
-        margin: 0;
-    }
-    .header-subtitulo {
-        font-size: 1.2rem;
-        color: #555;
-        font-weight: 600;
-        margin-top: 5px;
+    
+    /* --- DEFINIÇÕES DE CORES ESPECÍFICAS POR MODO --- */
+    
+    /* MODO CLARO (Padrão ou forçado pelo browser) */
+    @media (prefers-color-scheme: light) {
+        h1, h2, h3, h4, h5, h6 { color: #002060 !important; } /* Azul PET Escuro */
+        .pergunta-card { background-color: #f8f9fa; border: 1px solid #e9ecef; }
+        .pergunta-texto { color: #002060 !important; }
+        .header-titulo { color: #002060; font-size: 2.5rem; font-weight: 800; }
+        .header-subtitulo { color: #555; font-size: 1.2rem; font-weight: 600; }
     }
 
-    /* ELEMENTOS DE FORMULÁRIO */
+    /* MODO ESCURO (Dark Mode) */
+    @media (prefers-color-scheme: dark) {
+        h1, h2, h3, h4, h5, h6 { color: #82b1ff !important; } /* Azul Claro para contraste */
+        .pergunta-card { background-color: #262730; border: 1px solid #464b5c; }
+        .pergunta-texto { color: #e6e6e6 !important; } /* Branco Gelo */
+        .header-titulo { color: #82b1ff; font-size: 2.5rem; font-weight: 800; }
+        .header-subtitulo { color: #ccc; font-size: 1.2rem; font-weight: 600; }
+        /* Ajuste da linha do cabeçalho no escuro */
+        .header-institucional { border-bottom: 3px solid #82b1ff; } 
+    }
+
+    /* ELEMENTOS UNIVERSAIS (Botões e Inputs) */
+    
+    /* Botão de Salvar (Sempre Azul PET com texto branco) */
     div.stButton > button {
         background-color: #002060 !important;
         color: white !important;
@@ -69,60 +89,28 @@ st.markdown("""
         font-weight: 700;
         border: none;
         width: 100%;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.15);
+        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
         text-transform: uppercase;
         transition: all 0.3s ease;
     }
     div.stButton > button:hover {
-        background-color: #003399 !important;
+        background-color: #003399 !important; /* Azul um pouco mais claro */
         transform: translateY(-2px);
     }
     div.stButton > button p {
         color: white !important;
     }
 
+    /* Inputs e TextAreas - Melhorar visibilidade das bordas */
     .stTextInput input, .stTextArea textarea {
-        border: 1px solid #ced4da;
         border-radius: 4px;
     }
-    .stTextInput input:focus, .stTextArea textarea:focus {
-        border-color: #002060;
-        box-shadow: 0 0 0 1px #002060;
-    }
-
-    /* CARD DE PERGUNTA */
-    .pergunta-card {
-        background-color: #fcfcfc;
-        border: 1px solid #e9ecef;
-        border-left: 6px solid #002060;
-        border-radius: 6px;
-        padding: 20px;
-        margin-bottom: 20px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-    }
-    .pergunta-texto {
-        font-size: 1.15rem;
-        font-weight: 700;
-        color: #002060 !important;
-        margin-bottom: 15px;
-    }
-
-    /* ABAS DE NAVEGAÇÃO */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 10px;
-        border-bottom: 2px solid #e0e0e0;
-    }
-    .stTabs [data-baseweb="tab"] {
-        height: 50px;
-        font-size: 14px;
-        font-weight: 600;
-    }
-    .stTabs [aria-selected="true"] {
-        background-color: #f0f4f8 !important;
-        border-bottom: 3px solid #002060 !important;
-        color: #002060 !important;
-    }
-
+    
+    /* Abas */
+    .stTabs [data-baseweb="tab-list"] { gap: 10px; }
+    .stTabs [data-baseweb="tab"] { height: 50px; font-weight: 600; }
+    
+    /* Ocultar menus padrão */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     </style>
@@ -135,18 +123,18 @@ st.markdown("""
     <div class="header-institucional">
         <div class="header-titulo">S.A.C.</div>
         <div class="header-subtitulo">SISTEMA DE AVALIAÇÃO CURRICULAR</div>
-        <div style="font-size: 0.9rem; color: #666; margin-top: 5px;">DEPARTAMENTO DE ENGENHARIA QUÍMICA - UFC</div>
+        <div style="font-size: 0.9rem; margin-top: 5px; opacity: 0.8;">DEPARTAMENTO DE ENGENHARIA QUÍMICA - UFC</div>
     </div>
 """, unsafe_allow_html=True)
 
 # ==============================================================================
-# 4. LÓGICA DE GERENCIAMENTO DE ESTADO E HORA
+# 4. LÓGICA DE GERENCIAMENTO
 # ==============================================================================
 if 'form_key' not in st.session_state:
     st.session_state.form_key = 0
 
 def obter_hora_ceara():
-    """Função para pegar a hora certa (UTC-3) independente do servidor."""
+    """Hora certa (UTC-3)"""
     fuso_ceara = timezone(timedelta(hours=-3))
     agora = datetime.now(fuso_ceara)
     return agora.strftime("%Y-%m-%d %H:%M:%S")
@@ -160,7 +148,7 @@ def limpar_formulario():
             pass
 
 def renderizar_pergunta(texto_pergunta, id_unica):
-    """Gera o bloco visual da pergunta com Card HTML"""
+    """Gera o bloco visual da pergunta (Compatível Dark/Light)"""
     with st.container():
         st.markdown(f"""
         <div class="pergunta-card">
@@ -176,7 +164,7 @@ def renderizar_pergunta(texto_pergunta, id_unica):
                 options=["0", "1", "2", "3", "4", "5"], 
                 value="0", 
                 key=f"nota_{id_unica}_{st.session_state.form_key}",
-                help="Consulte o Guia de Ajuda para os critérios de avaliação."
+                help="0 = Nenhuma contribuição | 5 = Máxima contribuição"
             )
         
         with col_obs:
@@ -189,14 +177,13 @@ def renderizar_pergunta(texto_pergunta, id_unica):
     return int(val), obs
 
 # ==============================================================================
-# 5. BARRA LATERAL (IDENTIFICAÇÃO E GUIA)
+# 5. BARRA LATERAL
 # ==============================================================================
 respostas = {}
 
 with st.sidebar:
     tab_form, tab_guia = st.tabs(["👤 Identificação", "📘 Guia de Ajuda"])
     
-    # --- ABA 1: FORMULÁRIO ---
     with tab_form:
         st.markdown("### DADOS DO REGISTRO")
         
@@ -235,38 +222,20 @@ with st.sidebar:
         st.success("✅ Backup Ativo")
         st.caption("Progresso salvo automaticamente.")
 
-    # --- ABA 2: GUIA DE AJUDA ATUALIZADO ---
     with tab_guia:
         st.markdown("### 📘 MANUAL DO APLICADOR")
-        st.info("Este guia visa padronizar a coleta de dados do S.A.C.")
-        
-        st.markdown("#### 1. CRITÉRIOS DE AVALIAÇÃO (ESCALA 0-5)")
+        st.info("Guia de padronização para coleta de dados.")
         st.markdown("""
-        O discente deve avaliar o quanto a disciplina contribuiu para a competência:
-        
-        * **0 - Nula:** O tema não foi abordado ou não houve contribuição.
-        * **1 - Muito Baixa:** Houve apenas menção teórica superficial.
-        * **2 - Baixa:** Conceitos apresentados, mas sem fixação ou prática.
-        * **3 - Regular:** O aluno compreende o básico, mas sente falta de profundidade.
-        * **4 - Alta:** Boa base teórica e prática. O aluno sente-se seguro.
-        * **5 - Excelente:** Domínio pleno. A disciplina integrou teoria e prática de forma exemplar.
+        **Escala (0-5):**
+        * **0:** Nula / Não abordado.
+        * **1:** Muito Baixa (Apenas menção).
+        * **2:** Baixa (Sem fixação).
+        * **3:** Regular (Compreensão básica).
+        * **4:** Alta (Boa base teórica/prática).
+        * **5:** Excelente (Domínio pleno).
         """)
-        
         st.markdown("---")
-        st.markdown("#### 2. SOBRE AS OBSERVAÇÕES")
-        st.markdown("""
-        O campo de texto ao lado da nota deve ser utilizado para:
-        * Justificar notas extremas (0, 1 ou 5).
-        * Citar projetos ou aulas específicas que marcaram o aprendizado.
-        * Apontar redundâncias ou falta de pré-requisitos.
-        """)
-        
-        st.markdown("---")
-        st.markdown("#### 3. SUPORTE TÉCNICO")
-        st.warning("""
-        **Erro de Permissão?**
-        Se ao salvar aparecer erro de permissão, verifique se a planilha Excel não está aberta no computador. Feche-a e tente novamente.
-        """)
+        st.warning("⚠️ **Dica:** O campo de observações é obrigatório para justificar notas extremas (0 ou 5).")
 
 # ==============================================================================
 # 6. CONTEÚDO PRINCIPAL (ABAS E QUESTÕES)
@@ -430,64 +399,6 @@ except:
     pass
 
 # ==============================================================================
-# 8. ABA DASHBOARD (CORRIGIDA E SIMPLIFICADA)
+# 8. ABA DASHBOARD (SIMPLIFICADA E ROBUSTA)
 # ==============================================================================
-with tabs[6]:
-    st.markdown("### 📊 PAINEL DE INDICADORES DE DESEMPENHO")
-    
-    if os.path.exists(ARQUIVO_DB):
-        try:
-            # Força Matrícula como string
-            df = pd.read_csv(ARQUIVO_DB, dtype={'Matricula': str})
-            
-            col1, col2, col3 = st.columns(3)
-            col1.metric("Total de Discentes Avaliados", len(df))
-            
-            # --- FILTRAGEM DE DADOS NUMÉRICOS PARA MÉDIA ---
-            colunas_ignorar = [
-                'Nome', 'Matricula', 'Semestre', 'Curriculo', 
-                'Data_Registro', 'Petiano_Responsavel'
-            ]
-            colunas_numericas = [
-                c for c in df.columns 
-                if c not in colunas_ignorar 
-                and not c.startswith("Obs") 
-                and not c.startswith("Auto")
-                and not c.startswith("Justificativa") 
-                and not c.startswith("Contribuição")
-                and not c.startswith("Exemplos")
-                and not c.startswith("Competências")
-                and not c.startswith("Plano")
-                and not c.startswith("Comentários")
-            ]
-
-            df_num = df[colunas_numericas].apply(pd.to_numeric, errors='coerce')
-            
-            if not df_num.empty:
-                media_geral = df_num.mean().mean()
-                col2.metric("Média Geral de Competências", f"{media_geral:.2f}/5.0")
-            
-            # --- DATA FORMATADA (BR) ---
-            if 'Data_Registro' in df.columns:
-                last_dt = pd.to_datetime(df['Data_Registro']).max()
-                data_formatada = last_dt.strftime("%d/%m/%Y às %H:%M")
-                col3.metric("Última Atualização do Banco", data_formatada)
-            
-            st.markdown("---")
-
-            st.markdown("#### Base de Dados Detalhada (Registro Geral)")
-            st.dataframe(df, use_container_width=True, height=500)
-
-            # Download CSV
-            csv = df.to_csv(index=False).encode('utf-8-sig')
-            st.download_button(
-                label="📥 Baixar Tabela Completa (Excel/CSV)", 
-                data=csv, 
-                file_name=f"relatorio_sac_{datetime.now().strftime('%Y%m%d')}.csv", 
-                mime="text/csv"
-            )
-        except Exception as e:
-            st.error(f"Erro ao ler o banco de dados: {e}")
-    else:
-        st.info("Ainda não há dados registrados no sistema. Realize o primeiro preenchimento para visualizar os indicadores.")
-
+with tabs
