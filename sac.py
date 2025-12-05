@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import os
 import json
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 # ==============================================================================
 # 1. CONFIGURAÇÕES GERAIS E AMBIENTE
@@ -60,7 +60,6 @@ st.markdown("""
     }
 
     /* ELEMENTOS DE FORMULÁRIO */
-    /* Botões */
     div.stButton > button {
         background-color: #002060 !important;
         color: white !important;
@@ -82,7 +81,6 @@ st.markdown("""
         color: white !important;
     }
 
-    /* Caixas de Texto (Input/Textarea) */
     .stTextInput input, .stTextArea textarea {
         border: 1px solid #ced4da;
         border-radius: 4px;
@@ -92,7 +90,7 @@ st.markdown("""
         box-shadow: 0 0 0 1px #002060;
     }
 
-    /* CARD DE PERGUNTA (Layout) */
+    /* CARD DE PERGUNTA */
     .pergunta-card {
         background-color: #fcfcfc;
         border: 1px solid #e9ecef;
@@ -125,7 +123,6 @@ st.markdown("""
         color: #002060 !important;
     }
 
-    /* OCULTAR MENU PADRÃO DO STREAMLIT */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     </style>
@@ -143,13 +140,19 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==============================================================================
-# 4. LÓGICA DE GERENCIAMENTO DE ESTADO E PERSISTÊNCIA
+# 4. LÓGICA DE GERENCIAMENTO DE ESTADO E HORA
 # ==============================================================================
 if 'form_key' not in st.session_state:
     st.session_state.form_key = 0
 
+def obter_hora_ceara():
+    """Função para pegar a hora certa (UTC-3) independente do servidor."""
+    # Pega a hora atual UTC e subtrai 3 horas
+    fuso_ceara = timezone(timedelta(hours=-3))
+    agora = datetime.now(fuso_ceara)
+    return agora.strftime("%Y-%m-%d %H:%M:%S")
+
 def limpar_formulario():
-    """Reseta o formulário e limpa o backup após salvamento com sucesso."""
     st.session_state.form_key += 1
     if os.path.exists(ARQUIVO_BACKUP):
         try:
@@ -158,7 +161,7 @@ def limpar_formulario():
             pass
 
 def renderizar_pergunta(texto_pergunta, id_unica):
-    """Gera o bloco visual da pergunta."""
+    """Gera o bloco visual da pergunta com Card HTML"""
     with st.container():
         st.markdown(f"""
         <div class="pergunta-card">
@@ -187,19 +190,18 @@ def renderizar_pergunta(texto_pergunta, id_unica):
     return int(val), obs
 
 # ==============================================================================
-# 5. BARRA LATERAL: IDENTIFICAÇÃO DO DISCENTE
+# 5. BARRA LATERAL (IDENTIFICAÇÃO)
 # ==============================================================================
 respostas = {}
 
 with st.sidebar:
-    # ABAS LATERAIS
     tab_form, tab_guia = st.tabs(["👤 Identificação", "📘 Guia de Ajuda"])
     
     with tab_form:
         st.markdown("### DADOS DO REGISTRO")
         
         lista_petianos = [
-            "",
+            "", 
             "Ana Carolina",
             "Ana Clara", 
             "Ana Júlia",
@@ -227,7 +229,8 @@ with st.sidebar:
             key=f"curr_{st.session_state.form_key}"
         )
         
-        respostas["Data_Registro"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        # USA A HORA CORRIGIDA (UTC-3)
+        respostas["Data_Registro"] = obter_hora_ceara()
         
         st.markdown("---")
         st.success("✅ Backup Ativo")
@@ -431,10 +434,12 @@ with tabs[6]:
                 if c not in colunas_ignorar 
                 and not c.startswith("Obs") 
                 and not c.startswith("Auto")
+                and not c.startswith("Justificativa") # Garantindo que texto não entra
                 and not c.startswith("Contribuição")
                 and not c.startswith("Exemplos")
                 and not c.startswith("Competências")
                 and not c.startswith("Plano")
+                and not c.startswith("Comentários")
             ]
 
             # Converte para numérico (garantia)
@@ -468,4 +473,3 @@ with tabs[6]:
             st.error(f"Erro ao ler o banco de dados: {e}")
     else:
         st.info("Ainda não há dados registrados no sistema. Realize o primeiro preenchimento para visualizar os indicadores.")
-
