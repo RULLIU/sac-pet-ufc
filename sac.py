@@ -18,96 +18,52 @@ ARQUIVO_DB = "respostas_sac_deq.csv"
 ARQUIVO_BACKUP = "_backup_autosave.json"
 
 # ==============================================================================
-# 2. ESTILO VISUAL RESPONSIVO (MODO CLARO E ESCURO)
+# 2. ESTILO VISUAL RESPONSIVO
 # ==============================================================================
 st.markdown("""
     <style>
-    /* VARIÁVEIS DE COR E TIPO */
-    :root {
-        --primary-color: #002060; /* Azul Institucional */
-        --secondary-color: #f0f2f6;
-    }
-
-    /* AJUSTES GERAIS DE FONTE E COR */
-    .stApp { font-family: 'Segoe UI', 'Helvetica Neue', sans-serif; }
+    :root { --primary-color: #002060; }
+    .stApp { font-family: 'Segoe UI', sans-serif; }
+    h1, h2, h3, h4 { color: var(--primary-color) !important; font-weight: 800 !important; text-transform: uppercase; }
     
-    /* TÍTULOS (Adaptáveis ao tema) */
-    h1, h2, h3, h4 {
-        color: var(--primary-color) !important;
-        font-weight: 800 !important;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-    }
-    
-    /* MODO ESCURO - AJUSTE DE TÍTULOS PARA LEITURA */
     @media (prefers-color-scheme: dark) {
         h1, h2, h3, h4 { color: #82b1ff !important; }
     }
 
-    /* CARD DA PERGUNTA (CONTAINER) */
     .pergunta-card {
-        background-color: rgba(255, 255, 255, 0.05); /* Transparente adaptável */
+        background-color: rgba(255, 255, 255, 0.05);
         border: 1px solid rgba(128, 128, 128, 0.2);
         border-left: 5px solid #002060;
         border-radius: 8px;
         padding: 20px;
         margin-bottom: 20px;
     }
-    /* No modo escuro, a borda esquerda muda para azul claro para destacar */
     @media (prefers-color-scheme: dark) {
         .pergunta-card { border-left: 5px solid #82b1ff; }
     }
 
-    .pergunta-texto {
-        font-size: 1.1rem;
-        font-weight: 700;
-        margin-bottom: 15px;
-        opacity: 0.95;
-    }
+    .pergunta-texto { font-size: 1.1rem; font-weight: 700; margin-bottom: 15px; opacity: 0.95; }
 
-    /* BOTÕES DE NAVEGAÇÃO */
-    .stButton button {
-        border-radius: 6px;
-        font-weight: 700;
-        text-transform: uppercase;
-        height: 3.5em;
-        transition: 0.3s;
-        width: 100%;
-    }
+    .stButton button { border-radius: 6px; font-weight: 700; text-transform: uppercase; height: 3.5em; width: 100%; transition: 0.3s; }
     
-    /* BOTÃO "PRÓXIMO" (Estilo Secundário) */
+    /* Botão Próximo */
     div[data-testid="stVerticalBlock"] > div > div > div > div > .stButton button {
-        border: 2px solid #002060;
-        color: #002060;
-        background-color: transparent;
+        border: 2px solid #002060; color: #002060; background-color: transparent;
     }
     div[data-testid="stVerticalBlock"] > div > div > div > div > .stButton button:hover {
-        background-color: #002060;
-        color: white;
+        background-color: #002060; color: white;
     }
 
-    /* BOTÃO "FINALIZAR" (Estilo Primário) */
-    .botao-final button {
-        background-color: #002060 !important;
-        color: white !important;
-        border: none;
-        height: 4.5em;
-        font-size: 1.1rem;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-    }
-    .botao-final button:hover {
-        background-color: #003399 !important;
-        transform: scale(1.01);
-    }
+    /* Botão Finalizar */
+    .botao-final button { background-color: #002060 !important; color: white !important; border: none; height: 4.5em; }
+    .botao-final button:hover { background-color: #003399 !important; transform: scale(1.01); }
 
-    /* MENUS DO STREAMLIT */
-    #MainMenu {visibility: hidden;} 
-    footer {visibility: hidden;}
+    #MainMenu {visibility: hidden;} footer {visibility: hidden;}
     </style>
 """, unsafe_allow_html=True)
 
 # ==============================================================================
-# 3. CABEÇALHO INSTITUCIONAL
+# 3. CABEÇALHO
 # ==============================================================================
 st.markdown("""
     <div style="text-align: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 2px solid rgba(128,128,128,0.2);">
@@ -120,7 +76,6 @@ st.markdown("""
 # ==============================================================================
 # 4. GERENCIAMENTO DE ESTADO E NAVEGAÇÃO
 # ==============================================================================
-# Lista ordenada das seções para a navegação funcionar
 SECOES = [
     "1. Competências Gerais", 
     "2. Competências Específicas", 
@@ -131,146 +86,69 @@ SECOES = [
     "📊 Painel Gerencial"
 ]
 
-if 'form_key' not in st.session_state:
-    st.session_state.form_key = 0
-
-# Inicializa a navegação na primeira página
-if 'navegacao_atual' not in st.session_state:
-    st.session_state.navegacao_atual = SECOES[0]
+if 'form_key' not in st.session_state: st.session_state.form_key = 0
+if 'navegacao_atual' not in st.session_state: st.session_state.navegacao_atual = SECOES[0]
 
 def navegar_proxima():
-    """Avança para a próxima aba e salva backup."""
     try:
         indice = SECOES.index(st.session_state.navegacao_atual)
         if indice < len(SECOES) - 1:
             st.session_state.navegacao_atual = SECOES[indice + 1]
-            # Força recarregamento para mudar a aba visualmente
             st.rerun()
-    except:
-        pass
+    except: pass
 
 def limpar_formulario():
     st.session_state.form_key += 1
-    st.session_state.navegacao_atual = SECOES[0] # Volta para o início
+    st.session_state.navegacao_atual = SECOES[0]
     if os.path.exists(ARQUIVO_BACKUP):
         try: os.remove(ARQUIVO_BACKUP)
         except: pass
 
 def obter_hora_ceara():
-    """Garante horário local UTC-3."""
     fuso = timezone(timedelta(hours=-3))
     return datetime.now(fuso).strftime("%Y-%m-%d %H:%M:%S")
 
 def renderizar_pergunta(texto_pergunta, id_unica):
-    """
-    Renderiza o bloco de pergunta com opção N/A.
-    """
     with st.container():
         st.markdown(f"""<div class="pergunta-card"><div class="pergunta-texto">{texto_pergunta}</div></div>""", unsafe_allow_html=True)
-        
         c1, c2 = st.columns([0.55, 0.45])
         with c1:
-            # Opções incluindo N/A
-            opcoes_nota = ["N/A", "0", "1", "2", "3", "4", "5"]
-            val = st.select_slider(
-                "Nível de Competência (0-5)", 
-                options=opcoes_nota, 
-                value="0", # Padrão
-                key=f"nota_{id_unica}_{st.session_state.form_key}",
-                help="Selecione 'N/A' se o aluno não respondeu ou rasurou."
-            )
+            val = st.select_slider("Nível de Competência (0-5)", options=["N/A", "0", "1", "2", "3", "4", "5"], value="0", key=f"nota_{id_unica}_{st.session_state.form_key}", help="Selecione 'N/A' se não houver resposta.")
         with c2:
-            obs = st.text_input(
-                "Observações de Transcrição", 
-                placeholder="Transcreva comentários se houver...", 
-                key=f"obs_{id_unica}_{st.session_state.form_key}"
-            )
-    
-    # Tratamento do retorno: Se for N/A, retorna string, senão retorna inteiro
+            obs = st.text_input("Observações de Transcrição", placeholder="Transcreva comentários...", key=f"obs_{id_unica}_{st.session_state.form_key}")
     return val, obs
 
 # ==============================================================================
-# 5. BARRA LATERAL (IDENTIFICAÇÃO)
+# 5. BARRA LATERAL
 # ==============================================================================
 respostas = {}
-
 with st.sidebar:
     tab_dados, tab_ajuda = st.tabs(["👤 Identificação", "📘 Guia de Ajuda"])
-    
-    # --- ABA DADOS ---
     with tab_dados:
         st.markdown("### REGISTRO DO FORMULÁRIO")
         st.info("Preencha conforme o papel físico.")
-        
-        lista_petianos = sorted([
-            "",
-            "Ana Carolina", "Ana Clara", "Ana Júlia", 
-            "Eric Rullian", "Gildelandio Junior", 
-            "Lucas Mossmann (trainee)", "Pedro Paulo"
-        ])
-        
-        respostas["Petiano_Responsavel"] = st.selectbox(
-            "Responsável pela Transcrição", 
-            lista_petianos,
-            key=f"pet_{st.session_state.form_key}"
-        )
-        
+        petianos = sorted(["", "Ana Carolina", "Ana Clara", "Ana Júlia", "Eric Rullian", "Gildelandio Junior", "Lucas Mossmann (trainee)", "Pedro Paulo"])
+        respostas["Petiano_Responsavel"] = st.selectbox("Responsável pela Transcrição", petianos, key=f"pet_{st.session_state.form_key}")
         respostas["Nome"] = st.text_input("Nome do Discente (Legível)", key=f"nome_{st.session_state.form_key}")
         respostas["Matricula"] = st.text_input("Matrícula", key=f"mat_{st.session_state.form_key}")
-        
-        lista_semestres = [f"{i}º Semestre" for i in range(1, 11)]
-        respostas["Semestre"] = st.selectbox("Semestre Indicado", lista_semestres, key=f"sem_{st.session_state.form_key}")
-        
+        respostas["Semestre"] = st.selectbox("Semestre Indicado", [f"{i}º Semestre" for i in range(1, 11)], key=f"sem_{st.session_state.form_key}")
         respostas["Curriculo"] = st.radio("Matriz Curricular", ["Novo (2023.1)", "Antigo (2005.1)"], key=f"curr_{st.session_state.form_key}")
         respostas["Data_Registro"] = obter_hora_ceara()
-        
         st.markdown("---")
         st.success("✅ Sistema Online")
-
-    # --- ABA AJUDA (ATUALIZADA) ---
     with tab_ajuda:
-        st.markdown("### 📘 MANUAL DE TRANSCRIÇÃO")
-        
-        st.markdown("#### 1. SOBRE A OPÇÃO 'N/A'")
-        st.info("""
-        Utilize a opção **N/A (Não se Aplica)** no slider quando:
-        * O aluno deixou a questão em branco.
-        * O aluno marcou duas opções simultaneamente (anulado).
-        * A resposta está rasurada/ilegível.
-        
-        *Nota: O 'N/A' não conta como zero na média final.*
-        """)
-        
-        st.markdown("#### 2. TRANSCRIÇÃO DE TEXTO")
-        st.markdown("""
-        * Digite exatamente o que está escrito (**ipsis litteris**).
-        * Se houver erros de português no papel, mantenha-os (fidelidade).
-        * Se ilegível, digite: `[Texto ilegível]`.
-        """)
-        
-        st.markdown("#### 3. CAMPOS OBRIGATÓRIOS")
-        st.error("""
-        A seção **REFLEXÃO FINAL** não pode ficar vazia.
-        Se o aluno não escreveu nada, você deve digitar: **"EM BRANCO"**.
-        O sistema bloqueará o salvamento se esses campos estiverem vazios.
-        """)
+        st.markdown("### 📘 MANUAL")
+        st.info("Use **N/A** para questões em branco ou rasuradas.")
+        st.error("A seção **REFLEXÃO FINAL** é obrigatória. Digite 'EM BRANCO' se necessário.")
 
 # ==============================================================================
-# 6. MENU DE NAVEGAÇÃO SUPERIOR (WIZARD)
+# 6. NAVEGAÇÃO
 # ==============================================================================
-# Cria um menu de "Radio Buttons" horizontal que simula abas, mas permite controle via código
-secao_ativa = st.radio(
-    "Navegação Rápida", 
-    SECOES, 
-    horizontal=True, 
-    key="navegacao_atual",
-    label_visibility="collapsed"
-)
-
+secao_ativa = st.radio("Navegação Rápida", SECOES, horizontal=True, key="navegacao_atual", label_visibility="collapsed")
 st.markdown("---")
 
 # ==============================================================================
-# 7. CONTEÚDO DAS SEÇÕES
+# 7. CONTEÚDO DAS SEÇÕES (CHAIN IF/ELIF)
 # ==============================================================================
 
 # --- SEÇÃO 1 ---
@@ -441,15 +319,7 @@ elif secao_ativa == SECOES[5]:
                 st.error(f"❌ ERRO INESPERADO: {e}")
     st.markdown('</div>', unsafe_allow_html=True)
 
-# --- AUTO-SAVE ---
-try:
-    with open(ARQUIVO_BACKUP, "w", encoding='utf-8') as f:
-        json.dump(respostas, f, indent=4, ensure_ascii=False)
-except: pass
-
-# ==============================================================================
-# 7. DASHBOARD (PAINEL GERENCIAL)
-# ==============================================================================
+# --- SEÇÃO 7: DASHBOARD (PAINEL GERENCIAL) ---
 elif secao_ativa == SECOES[6]:
     st.markdown("### 📊 STATUS DA DIGITALIZAÇÃO")
     
@@ -505,3 +375,9 @@ elif secao_ativa == SECOES[6]:
             st.error(f"Erro ao carregar banco de dados: {e}")
     else:
         st.info("Nenhum formulário digitalizado até o momento.")
+
+# --- AUTO-SAVE (FIM) ---
+try:
+    with open(ARQUIVO_BACKUP, "w", encoding='utf-8') as f:
+        json.dump(respostas, f, indent=4, ensure_ascii=False)
+except: pass
