@@ -132,7 +132,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==============================================================================
-# 3. CABEÇALHO INSTITUCIONAL (SEM IMAGEM)
+# 3. CABEÇALHO INSTITUCIONAL
 # ==============================================================================
 st.markdown("""
     <div class="header-institucional">
@@ -454,23 +454,17 @@ with tabs[6]:
             
             st.markdown("---")
 
-            # Tabela Simplificada (Sem Gráficos)
             st.markdown("#### Base de Dados Detalhada (Registro Geral)")
             if len(cols_notas) > 0:
-                # Tabela estilizada (Heatmap)
-                st.dataframe(
-                    df.style.background_gradient(cmap="RdYlGn", subset=cols_notas, vmin=0, vmax=5)
-                      .format("{:.0f}", subset=cols_notas),
-                    use_container_width=True,
-                    height=500
-                )
+                # Tabela Simples e Limpa (Sem Gráficos)
+                st.dataframe(df, use_container_width=True, height=500)
             else:
                 st.dataframe(df)
 
             # Botão de Download (Excel/CSV)
             csv = df.to_csv(index=False).encode('utf-8-sig')
             st.download_button(
-                label="📥 Baixar Tabela Completa (Excel/CSV)", 
+                label="📥 Exportar Relatório Completo (.csv)", 
                 data=csv, 
                 file_name=f"relatorio_sac_{datetime.now().strftime('%Y%m%d')}.csv", 
                 mime="text/csv"
@@ -479,3 +473,5 @@ with tabs[6]:
             st.error(f"Erro ao ler o banco de dados: {e}")
     else:
         st.info("Ainda não há dados registrados no sistema. Realize o primeiro preenchimento para visualizar os indicadores.")
+        st.info("Ainda não há dados registrados no sistema. Realize o primeiro preenchimento para visualizar os indicadores.")
+
