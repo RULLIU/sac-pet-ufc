@@ -27,7 +27,7 @@ st.markdown("""
     p, label, span, div, li, .stMarkdown { color: #2c3e50 !important; }
     h1, h2, h3, h4, h5, h6 { color: #002060 !important; font-weight: 800 !important; text-transform: uppercase; }
 
-    /* MENU DE NAVEGAÇÃO (SUBSTITUI AS ABAS) */
+    /* MENU DE NAVEGAÇÃO */
     div[role="radiogroup"] {
         background-color: #f8f9fa;
         padding: 10px;
@@ -38,7 +38,7 @@ st.markdown("""
         margin-bottom: 20px;
     }
     
-    /* BOTÃO AVANÇAR (VERDE DESTAQUE) */
+    /* BOTÃO AVANÇAR */
     .stButton button {
         border-radius: 6px;
         height: 3em;
@@ -48,14 +48,14 @@ st.markdown("""
         transition: 0.3s;
     }
     
-    /* Botão Principal (Salvar Final) */
+    /* Botão Principal */
     .botao-final button {
         background-color: #002060 !important;
         color: white !important;
         height: 4.5em;
     }
     
-    /* Botão Avançar (Secundário) */
+    /* Botão Avançar */
     .botao-avancar button {
         background-color: #ffffff !important;
         color: #002060 !important;
@@ -83,7 +83,6 @@ st.markdown("""
         margin-bottom: 15px;
     }
 
-    /* MENUS */
     #MainMenu {visibility: hidden;} footer {visibility: hidden;}
     </style>
 """, unsafe_allow_html=True)
@@ -102,7 +101,6 @@ st.markdown("""
 # ==============================================================================
 # 4. GERENCIAMENTO DE ESTADO E NAVEGAÇÃO
 # ==============================================================================
-# Lista Oficial de Seções (Ordem Lógica)
 SECOES = [
     "1. Competências Gerais", 
     "2. Competências Específicas", 
@@ -116,12 +114,10 @@ SECOES = [
 if 'form_key' not in st.session_state:
     st.session_state.form_key = 0
 
-# Inicializa a navegação na primeira seção se não existir
 if 'navegacao_atual' not in st.session_state:
     st.session_state.navegacao_atual = SECOES[0]
 
 def navegar_proxima():
-    """Função para pular para a próxima aba automaticamente."""
     try:
         indice_atual = SECOES.index(st.session_state.navegacao_atual)
         if indice_atual < len(SECOES) - 1:
@@ -131,7 +127,7 @@ def navegar_proxima():
 
 def limpar_formulario():
     st.session_state.form_key += 1
-    st.session_state.navegacao_atual = SECOES[0] # Volta para o início
+    st.session_state.navegacao_atual = SECOES[0]
     if os.path.exists(ARQUIVO_BACKUP):
         try: os.remove(ARQUIVO_BACKUP)
         except: pass
@@ -141,7 +137,6 @@ def obter_hora_ceara():
     return datetime.now(fuso).strftime("%Y-%m-%d %H:%M:%S")
 
 def renderizar_pergunta(texto_pergunta, id_unica):
-    """Gera o bloco visual da pergunta."""
     with st.container():
         st.markdown(f"<div class='pergunta-card'><div class='pergunta-texto'>{texto_pergunta}</div></div>", unsafe_allow_html=True)
         c1, c2 = st.columns([0.60, 0.40])
@@ -169,21 +164,20 @@ with st.sidebar:
     st.info("💡 As seções avançam automaticamente ao clicar em 'Próximo'.")
 
 # ==============================================================================
-# 6. MENU DE NAVEGAÇÃO SUPERIOR (INTERATIVO)
+# 6. MENU DE NAVEGAÇÃO
 # ==============================================================================
-# Isso substitui as st.tabs antigas por um controle que podemos mudar via código
 secao_ativa = st.radio(
     "", 
     SECOES, 
     horizontal=True, 
-    key="navegacao_atual", # Vinculado ao session_state para permitir troca automática
+    key="navegacao_atual",
     label_visibility="collapsed"
 )
 
 st.markdown("---")
 
 # ==============================================================================
-# 7. CONTEÚDO DAS SEÇÕES
+# 7. CONTEÚDO DAS SEÇÕES (CADEIA IF/ELIF CORRIGIDA)
 # ==============================================================================
 
 # --- SEÇÃO 1 ---
@@ -199,7 +193,6 @@ if secao_ativa == SECOES[0]:
     respostas["8. Ética"], respostas["Obs_8"] = renderizar_pergunta("8. Aplicar ética e legislação no exercício profissional", "q8")
     
     st.markdown("---")
-    # Botão de Avançar
     col_nav1, col_nav2 = st.columns([0.8, 0.2])
     with col_nav2:
         st.markdown('<div class="botao-avancar">', unsafe_allow_html=True)
@@ -298,7 +291,7 @@ elif secao_ativa == SECOES[4]:
         respostas["Estágio: Empreend."], respostas["Obs_E2"] = renderizar_pergunta("48. Estágio: Capacidade empreendedora", "est_48")
     with st.expander("OPTATIVAS E INTEGRADORAS", expanded=True):
         respostas["Bio: Dados"], respostas["Obs_B1"] = renderizar_pergunta("49. Biotecnologia: Analisar grandes volumes de dados", "bio_49")
-        respostas["Bio: Ferram."], respostas["Obs_B2"] = renderizar_pergunta("50. Biotecnologia: Novas ferramentas", "bio_50")
+        respostas["Bio: Ferram."], respostas["Obs_B2"] = renderizar_pergunta("50. Biotec: Novas ferramentas", "bio_50")
         respostas["Petro: Recuper."], respostas["Obs_P1"] = renderizar_pergunta("51. Petróleo: Projetar sistemas de recuperação", "petro_51")
         respostas["Petro: Reatores"], respostas["Obs_P2"] = renderizar_pergunta("52. Petróleo: Projetar reatores", "petro_52")
         respostas["Sim: Dados"], respostas["Obs_Si1"] = renderizar_pergunta("57. Simulação: Analisar dados", "sim_57")
@@ -352,12 +345,6 @@ elif secao_ativa == SECOES[5]:
                 st.error(f"❌ ERRO INESPERADO: {e}")
     st.markdown('</div>', unsafe_allow_html=True)
 
-# --- AUTO-SAVE ---
-try:
-    with open(ARQUIVO_BACKUP, "w", encoding='utf-8') as f:
-        json.dump(respostas, f, indent=4, ensure_ascii=False)
-except: pass
-
 # --- SEÇÃO 7 (DASHBOARD) ---
 elif secao_ativa == SECOES[6]:
     st.markdown("### 📊 PAINEL DE INDICADORES")
@@ -367,7 +354,6 @@ elif secao_ativa == SECOES[6]:
             col1, col2, col3 = st.columns(3)
             col1.metric("Discentes Avaliados", len(df))
             
-            # Filtro de colunas numéricas (Ignorando identificação)
             colunas_ignorar = ['Nome', 'Matricula', 'Semestre', 'Curriculo', 'Data_Registro', 'Petiano_Responsavel']
             colunas_numericas = [c for c in df.columns if c not in colunas_ignorar and not c.startswith("Obs") and not c.startswith("Auto") and not c.startswith("Justificativa") and not c.startswith("Contribuição") and not c.startswith("Exemplos") and not c.startswith("Competências") and not c.startswith("Plano") and not c.startswith("Comentários")]
             
@@ -390,3 +376,9 @@ elif secao_ativa == SECOES[6]:
             st.error(f"Erro: {e}")
     else:
         st.info("Nenhum dado registrado.")
+
+# --- AUTO-SAVE (SEMPRE NO FINAL) ---
+try:
+    with open(ARQUIVO_BACKUP, "w", encoding='utf-8') as f:
+        json.dump(respostas, f, indent=4, ensure_ascii=False)
+except: pass
