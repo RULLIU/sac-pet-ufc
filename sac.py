@@ -401,4 +401,62 @@ except:
 # ==============================================================================
 # 8. ABA DASHBOARD (SIMPLIFICADA E ROBUSTA)
 # ==============================================================================
-with tabs
+with tabs[6]:
+    st.markdown("### 📊 PAINEL DE INDICADORES DE DESEMPENHO")
+    
+    if os.path.exists(ARQUIVO_DB):
+        try:
+            # Força Matrícula como string
+            df = pd.read_csv(ARQUIVO_DB, dtype={'Matricula': str})
+            
+            col1, col2, col3 = st.columns(3)
+            col1.metric("Total de Discentes Avaliados", len(df))
+            
+            # --- FILTRAGEM DE DADOS NUMÉRICOS PARA MÉDIA ---
+            colunas_ignorar = [
+                'Nome', 'Matricula', 'Semestre', 'Curriculo', 
+                'Data_Registro', 'Petiano_Responsavel'
+            ]
+            colunas_numericas = [
+                c for c in df.columns 
+                if c not in colunas_ignorar 
+                and not c.startswith("Obs") 
+                and not c.startswith("Auto")
+                and not c.startswith("Justificativa") 
+                and not c.startswith("Contribuição")
+                and not c.startswith("Exemplos")
+                and not c.startswith("Competências")
+                and not c.startswith("Plano")
+                and not c.startswith("Comentários")
+            ]
+
+            df_num = df[colunas_numericas].apply(pd.to_numeric, errors='coerce')
+            
+            if not df_num.empty:
+                media_geral = df_num.mean().mean()
+                col2.metric("Média Geral de Competências", f"{media_geral:.2f}/5.0")
+            
+            # --- DATA FORMATADA (BR) ---
+            if 'Data_Registro' in df.columns:
+                last_dt = pd.to_datetime(df['Data_Registro']).max()
+                data_formatada = last_dt.strftime("%d/%m/%Y às %H:%M")
+                col3.metric("Última Atualização do Banco", data_formatada)
+            
+            st.markdown("---")
+
+            st.markdown("#### Base de Dados Detalhada (Registro Geral)")
+            # Tabela Simples (Sem cores)
+            st.dataframe(df, use_container_width=True, height=500)
+
+            # Download CSV
+            csv = df.to_csv(index=False).encode('utf-8-sig')
+            st.download_button(
+                label="📥 Baixar Tabela Completa (Excel/CSV)", 
+                data=csv, 
+                file_name=f"relatorio_sac_{datetime.now().strftime('%Y%m%d')}.csv", 
+                mime="text/csv"
+            )
+        except Exception as e:
+            st.error(f"Erro ao ler o banco de dados: {e}")
+    else:
+        st.info("Ainda não há dados registrados no sistema. Realize o primeiro preenchimento para visualizar os indicadores.")
