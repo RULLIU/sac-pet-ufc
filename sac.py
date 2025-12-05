@@ -77,13 +77,14 @@ st.markdown("""
 
     /* CAIXAS DE AJUDA */
     .manual-box { padding: 15px; border-radius: 8px; margin-bottom: 15px; }
+    .manual-titulo { font-weight: bold; margin-bottom: 5px; color: #002060; }
 
     #MainMenu {visibility: hidden;} footer {visibility: hidden;}
     </style>
 """, unsafe_allow_html=True)
 
 # ==============================================================================
-# 3. CABEÇALHO
+# 3. CABEÇALHO INSTITUCIONAL
 # ==============================================================================
 st.markdown("""
     <div style="text-align: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 2px solid rgba(128,128,128,0.2);">
@@ -94,49 +95,33 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==============================================================================
-# 4. LÓGICA DE BACKUP E ESTADO (CRUCIAL)
+# 4. FUNÇÕES DE SUPORTE
 # ==============================================================================
-
-# Seções do fluxo de transcrição (Sem o Painel Gerencial aqui!)
 SECOES = [
-    "1. Competências Gerais", 
-    "2. Competências Específicas", 
-    "3. Disciplinas Básicas", 
-    "4. Disciplinas Profissionais", 
-    "5. Disciplinas Avançadas", 
-    "6. Reflexão Final (Obrigatória)"
+    "1. Gerais", "2. Específicas", "3. Básicas", 
+    "4. Profissionais", "5. Avançadas", "6. Reflexão"
 ]
 
-# Inicializa Chaves de Controle
 if 'form_key' not in st.session_state: st.session_state.form_key = 0
 if 'navegacao_atual' not in st.session_state: st.session_state.navegacao_atual = SECOES[0]
 
 def carregar_backup():
-    """Restaura dados do JSON para o Session State se o arquivo existir."""
     if os.path.exists(ARQUIVO_BACKUP):
         try:
             with open(ARQUIVO_BACKUP, "r", encoding='utf-8') as f:
                 dados = json.load(f)
                 for k, v in dados.items():
-                    # Só restaura se a chave pertencer ao formulário atual
-                    if k.endswith(f"_{st.session_state.form_key}"): 
+                    if k.endswith(f"_{st.session_state.form_key}"):
                         st.session_state[k] = v
         except: pass
 
-# Tenta carregar backup na inicialização
 if 'backup_restaurado' not in st.session_state:
     carregar_backup()
     st.session_state.backup_restaurado = True
 
 def salvar_estado():
-    """Salva todo o Session State relevante no arquivo JSON."""
     try:
-        # Filtra chaves relevantes (identificação + notas + obs)
-        dados_salvar = {
-            k: v for k, v in st.session_state.items() 
-            if (k.startswith("nota_") or k.startswith("obs_") or k.startswith("ident_"))
-            and isinstance(v, (str, int, float, bool))
-        }
+        dados_salvar = {k: v for k, v in st.session_state.items() if (k.startswith("nota_") or k.startswith("obs_") or k.startswith("ident_")) and isinstance(v, (str, int, float, bool))}
         with open(ARQUIVO_BACKUP, "w", encoding='utf-8') as f:
             json.dump(dados_salvar, f, indent=4, ensure_ascii=False)
     except: pass
@@ -151,7 +136,7 @@ def navegar_proxima():
     except: pass
 
 def limpar_formulario():
-    st.session_state.form_key += 1 # Incrementa ID do formulário (reseta widgets)
+    st.session_state.form_key += 1
     st.session_state.navegacao_atual = SECOES[0]
     if os.path.exists(ARQUIVO_BACKUP):
         try: os.remove(ARQUIVO_BACKUP)
@@ -161,9 +146,10 @@ def obter_hora_ceara():
     fuso = timezone(timedelta(hours=-3))
     return datetime.now(fuso).strftime("%Y-%m-%d %H:%M:%S")
 
-def renderizar_pergunta(texto_pergunta, id_unica):
-    """Renderiza e vincula diretamente ao session_state."""
-    k_suffix = st.session_state.form_key
+def renderizar_pergunta(texto_pergunta, id_unica, valor_padrao="N/A", obs_padrao="", key_suffix=""):
+    """Renderiza pergunta suportando valores padrão para o modo de edição."""
+    # Define a chave correta: Se key_suffix vier (edição), usa ele. Se não, usa o form_key atual.
+    k = key_suffix if key_suffix else f"_{st.session_state.form_key}"
     
     with st.container():
         st.markdown(f"""<div class="pergunta-card"><div class="pergunta-texto">{texto_pergunta}</div></div>""", unsafe_allow_html=True)
@@ -172,76 +158,103 @@ def renderizar_pergunta(texto_pergunta, id_unica):
             val = st.select_slider(
                 "Nível de Competência", 
                 options=["N/A", "0", "1", "2", "3", "4", "5"], 
-                value="N/A", # Padrão
-                key=f"nota_{id_unica}_{k_suffix}",
+                value=str(valor_padrao), # Força string
+                key=f"nota_{id_unica}{k}",
                 help="Selecione 'N/A' se vazio."
             )
         with c2:
             obs = st.text_input(
                 "Transcrição de Obs.", 
+                value=str(obs_padrao) if pd.notna(obs_padrao) else "",
                 placeholder="Comentários...", 
-                key=f"obs_{id_unica}_{k_suffix}"
+                key=f"obs_{id_unica}{k}"
             )
     return val, obs
 
 # ==============================================================================
-# 5. BARRA LATERAL (IDENTIFICAÇÃO)
+# 5. BARRA LATERAL (IDENTIFICAÇÃO E MANUAL DETALHADO)
 # ==============================================================================
+respostas = {}
+
 with st.sidebar:
     st.markdown("### ⚙️ MODO DE OPERAÇÃO")
-    # Painel Gerencial agora é um MODO separado, não uma aba do wizard
-    modo_operacao = st.radio("Ação:", ["📝 Nova Transcrição", "📊 Painel Gerencial"], label_visibility="collapsed")
+    modo_operacao = st.radio("Ação:", ["📝 Nova Transcrição", "✏️ Editar Registro Existente", "📊 Painel Gerencial"], label_visibility="collapsed")
     st.markdown("---")
 
     if modo_operacao == "📝 Nova Transcrição":
-        tab_id, tab_manual = st.tabs(["👤 Identificação", "📘 Manual"])
+        tab_id, tab_manual = st.tabs(["👤 Identificação", "📘 Manual de Instruções"])
         
         with tab_id:
             st.info("Preencha conforme o papel.")
-            k_sfx = st.session_state.form_key
+            k_sfx = f"_{st.session_state.form_key}"
             
-            # Usando prefixo 'ident_' para identificar no salvamento
-            st.selectbox("Responsável", sorted(["", "Ana Carolina", "Ana Clara", "Ana Júlia", "Eric Rullian", "Gildelandio Junior", "Lucas Mossmann (trainee)", "Pedro Paulo"]), key=f"ident_pet_{k_sfx}")
-            st.text_input("Nome do Discente", key=f"ident_nome_{k_sfx}")
-            st.text_input("Matrícula", key=f"ident_mat_{k_sfx}")
-            st.selectbox("Semestre", [f"{i}º Semestre" for i in range(1, 11)], key=f"ident_sem_{k_sfx}")
-            st.radio("Matriz", ["Novo (2023.1)", "Antigo (2005.1)"], key=f"ident_curr_{k_sfx}")
+            st.selectbox("Responsável", sorted(["", "Ana Carolina", "Ana Clara", "Ana Júlia", "Eric Rullian", "Gildelandio Junior", "Lucas Mossmann (trainee)", "Pedro Paulo"]), key=f"ident_pet{k_sfx}")
+            st.text_input("Nome do Discente", key=f"ident_nome{k_sfx}")
+            st.text_input("Matrícula", key=f"ident_mat{k_sfx}")
+            st.selectbox("Semestre", [f"{i}º Semestre" for i in range(1, 11)], key=f"ident_sem{k_sfx}")
+            st.radio("Matriz", ["Novo (2023.1)", "Antigo (2005.1)"], key=f"ident_curr{k_sfx}")
             
-            st.success("✅ Backup Ativo")
             if st.button("🗑️ Limpar Formulário"):
                 limpar_formulario()
                 st.rerun()
 
+        # --- MANUAL EXTREMAMENTE DETALHADO ---
         with tab_manual:
-            st.markdown("### 📘 GUIA DE TRANSCRIÇÃO")
-            st.markdown('<div class="manual-box">', unsafe_allow_html=True)
-            st.markdown("**1. ESCALA E 'N/A'**")
-            st.caption("Use **N/A** para campos em branco, rasurados ou ilegíveis. O N/A não entra no cálculo da média (não conta como zero).")
-            st.markdown('</div>', unsafe_allow_html=True)
-            st.markdown('<div class="manual-box">', unsafe_allow_html=True)
-            st.markdown("**2. TEXTOS OBRIGATÓRIOS**")
-            st.caption("A seção **REFLEXÃO FINAL** é obrigatória. Se o aluno deixou em branco, você DEVE digitar **'EM BRANCO'** para conseguir salvar.")
-            st.markdown('</div>', unsafe_allow_html=True)
+            st.markdown("### 📘 PROCEDIMENTOS PADRÃO")
+            
+            with st.expander("1. Preparação e Conduta", expanded=True):
+                st.caption("A fidelidade aos dados é a prioridade absoluta.")
+                st.markdown("""
+                * **Não altere erros:** Se o aluno escreveu "escelente" com 's', transcreva com 's'.
+                * **Não interprete:** Se o aluno foi vago, transcreva a vagueza.
+                * **Letra Ilegível:** Tente consultar um colega. Se ninguém entender, digite `[ILEGÍVEL]`.
+                """)
+
+            with st.expander("2. Escala Numérica e 'N/A'"):
+                st.markdown("""
+                * **N/A (Não se Aplica):** Use OBRIGATORIAMENTE quando:
+                    * O campo está em branco.
+                    * Há rasura que impede identificar a nota.
+                    * O aluno marcou duas opções (ex: 3 e 4).
+                * **0 a 5:** Transcreva apenas se a marcação for clara.
+                """)
+
+            with st.expander("3. Seção Final (Obrigatória)"):
+                st.error("""
+                O sistema **BLOQUEIA** o salvamento se a Reflexão Final estiver vazia.
+                
+                **Cenários Comuns:**
+                1. **Aluno escreveu:** Transcreva tudo.
+                2. **Aluno deixou em branco:** Digite `EM BRANCO` ou `NÃO RESPONDEU` nos campos de texto.
+                3. **Aluno escreveu 'Não sei':** Digite `Não sei`.
+                """)
+
+            with st.expander("4. Resolução de Problemas"):
+                st.info("""
+                * **Erro 'Permission Denied':** O arquivo Excel está aberto no seu computador. Feche-o e tente salvar de novo.
+                * **Travamento:** Atualize a página (F5). O backup automático recuperará os dados.
+                """)
 
 # ==============================================================================
 # LÓGICA 1: WIZARD DE TRANSCRIÇÃO
 # ==============================================================================
 if modo_operacao == "📝 Nova Transcrição":
-    # Menu Superior Controlado
     secao_ativa = st.radio("Etapas:", SECOES, horizontal=True, key="navegacao_atual", label_visibility="collapsed")
     st.markdown("---")
+    
+    k_suffix = f"_{st.session_state.form_key}"
 
-    # --- RENDERIZAÇÃO DAS SEÇÕES ---
+    # --- SEÇÃO 1 ---
     if secao_ativa == SECOES[0]:
         st.markdown("### 1. COMPETÊNCIAS TÉCNICAS E GERAIS")
-        renderizar_pergunta("1. Projetar e conduzir experimentos e interpretar resultados", "q1")
-        renderizar_pergunta("2. Desenvolver e/ou utilizar novas ferramentas e técnicas", "q2")
-        renderizar_pergunta("3. Conceber, projetar e analisar sistemas, produtos e processos", "q3")
-        renderizar_pergunta("4. Formular, conceber e avaliar soluções para problemas de engenharia", "q4")
-        renderizar_pergunta("5. Analisar e compreender fenômenos físicos e químicos através de modelos", "q5")
-        renderizar_pergunta("6. Comunicar-se nas formas escrita, oral e gráfica", "q6")
-        renderizar_pergunta("7. Trabalhar e liderar equipes profissionais e multidisciplinares", "q7")
-        renderizar_pergunta("8. Aplicar ética e legislação no exercício profissional", "q8")
+        renderizar_pergunta("1. Projetar e conduzir experimentos e interpretar resultados", "q1", key_suffix=k_suffix)
+        renderizar_pergunta("2. Desenvolver e/ou utilizar novas ferramentas e técnicas", "q2", key_suffix=k_suffix)
+        renderizar_pergunta("3. Conceber, projetar e analisar sistemas, produtos e processos", "q3", key_suffix=k_suffix)
+        renderizar_pergunta("4. Formular, conceber e avaliar soluções para problemas de engenharia", "q4", key_suffix=k_suffix)
+        renderizar_pergunta("5. Analisar e compreender fenômenos físicos e químicos através de modelos", "q5", key_suffix=k_suffix)
+        renderizar_pergunta("6. Comunicar-se nas formas escrita, oral e gráfica", "q6", key_suffix=k_suffix)
+        renderizar_pergunta("7. Trabalhar e liderar equipes profissionais e multidisciplinares", "q7", key_suffix=k_suffix)
+        renderizar_pergunta("8. Aplicar ética e legislação no exercício profissional", "q8", key_suffix=k_suffix)
         
         st.markdown("---")
         col1, col2 = st.columns([0.8, 0.2])
@@ -250,20 +263,21 @@ if modo_operacao == "📝 Nova Transcrição":
             st.button("SALVAR RASCUNHO E AVANÇAR ➡️", on_click=navegar_proxima, key="btn_nav1")
             st.markdown('</div>', unsafe_allow_html=True)
 
+    # --- SEÇÃO 2 ---
     elif secao_ativa == SECOES[1]:
         st.markdown("### 2. COMPETÊNCIAS ESPECÍFICAS")
-        renderizar_pergunta("9. Aplicar conhecimentos matemáticos, científicos e tecnológicos", "q9")
-        renderizar_pergunta("10. Compreender e modelar transferência de quantidade de movimento, calor e massa", "q10")
-        renderizar_pergunta("11. Aplicar conhecimentos de fenômenos de transporte ao projeto", "q11")
-        renderizar_pergunta("12. Compreender mecanismos de transformação da matéria e energia", "q12")
-        renderizar_pergunta("13. Projetar sistemas de recuperação, separação e purificação", "q13")
-        renderizar_pergunta("14. Compreender mecanismos cinéticos de reações químicas", "q14")
-        renderizar_pergunta("15. Projetar e otimizar sistemas reacionais e reatores", "q15")
-        renderizar_pergunta("16. Projetar sistemas de controle de processos industriais", "q16")
-        renderizar_pergunta("17. Projetar e otimizar plantas industriais (ambiental/segurança)", "q17")
+        renderizar_pergunta("9. Aplicar conhecimentos matemáticos, científicos e tecnológicos", "q9", key_suffix=k_suffix)
+        renderizar_pergunta("10. Compreender e modelar transferência de quantidade de movimento, calor e massa", "q10", key_suffix=k_suffix)
+        renderizar_pergunta("11. Aplicar conhecimentos de fenômenos de transporte ao projeto", "q11", key_suffix=k_suffix)
+        renderizar_pergunta("12. Compreender mecanismos de transformação da matéria e energia", "q12", key_suffix=k_suffix)
+        renderizar_pergunta("13. Projetar sistemas de recuperação, separação e purificação", "q13", key_suffix=k_suffix)
+        renderizar_pergunta("14. Compreender mecanismos cinéticos de reações químicas", "q14", key_suffix=k_suffix)
+        renderizar_pergunta("15. Projetar e otimizar sistemas reacionais e reatores", "q15", key_suffix=k_suffix)
+        renderizar_pergunta("16. Projetar sistemas de controle de processos industriais", "q16", key_suffix=k_suffix)
+        renderizar_pergunta("17. Projetar e otimizar plantas industriais (ambiental/segurança)", "q17", key_suffix=k_suffix)
         st.markdown("#### Eixos de Formação Prática")
-        renderizar_pergunta("18. Aplicação de conhecimentos em projeto básico e dimensionamento", "q18")
-        renderizar_pergunta("19. Execução de projetos de produção e melhorias de processos", "q19")
+        renderizar_pergunta("18. Aplicação de conhecimentos em projeto básico e dimensionamento", "q18", key_suffix=k_suffix)
+        renderizar_pergunta("19. Execução de projetos de produção e melhorias de processos", "q19", key_suffix=k_suffix)
         
         st.markdown("---")
         col1, col2 = st.columns([0.8, 0.2])
@@ -272,23 +286,26 @@ if modo_operacao == "📝 Nova Transcrição":
             st.button("SALVAR RASCUNHO E AVANÇAR ➡️", on_click=navegar_proxima, key="btn_nav2")
             st.markdown('</div>', unsafe_allow_html=True)
 
+    # --- SEÇÃO 3 ---
     elif secao_ativa == SECOES[2]:
         st.markdown("### 3. DISCIPLINAS BÁSICAS")
-        with st.expander("CÁLCULO E FÍSICA", expanded=True):
-            renderizar_pergunta("21. Analisar grandes volumes de dados", "calc_21")
-            renderizar_pergunta("52. Formação Básica (cálculo, física, química, estatística)", "calc_52")
-            renderizar_pergunta("22. Analisar criticamente a operação e manutenção de sistemas", "fis_22")
-            renderizar_pergunta("53. Ciência da Engenharia (mecânica, resistência)", "fis_53")
-        with st.expander("QUÍMICA E TERMO", expanded=True):
-            renderizar_pergunta("23. Aplicar conhecimentos de transformação a processos", "qui_23")
-            renderizar_pergunta("24. Conceber e desenvolver produtos e processos", "qui_24")
-            renderizar_pergunta("25. Projetar sistemas de suprimento energético", "termo_25")
-            renderizar_pergunta("54. Ciência da Eng. Química (termodinâmica)", "termo_54")
-        with st.expander("FENÔMENOS E MECFLU", expanded=True):
-            renderizar_pergunta("26. Aplicar conhecimentos de fenômenos de transporte", "ft_26")
-            renderizar_pergunta("27. Comunicar-se tecnicamente e usar recursos gráficos", "ft_27")
-            renderizar_pergunta("28. Implantar, implementar e controlar soluções", "mecflu_28")
-            renderizar_pergunta("29. Operar e supervisionar instalações", "mecflu_29")
+        with st.expander("CÁLCULO DIFERENCIAL E INTEGRAL", expanded=True):
+            renderizar_pergunta("21. Analisar grandes volumes de dados", "calc_21", key_suffix=k_suffix)
+            renderizar_pergunta("52. Formação Básica", "calc_52", key_suffix=k_suffix)
+        with st.expander("FÍSICA GERAL", expanded=True):
+            renderizar_pergunta("22. Analisar criticamente a operação e manutenção de sistemas", "fis_22", key_suffix=k_suffix)
+            renderizar_pergunta("53. Ciência da Engenharia", "fis_53", key_suffix=k_suffix)
+        with st.expander("QUÍMICA GERAL E ANALÍTICA", expanded=True):
+            renderizar_pergunta("23. Aplicar conhecimentos de transformação a processos", "qui_23", key_suffix=k_suffix)
+            renderizar_pergunta("24. Conceber e desenvolver produtos e processos", "qui_24", key_suffix=k_suffix)
+        with st.expander("TERMODINÂMICA", expanded=True):
+            renderizar_pergunta("25. Projetar sistemas de suprimento energético", "termo_25", key_suffix=k_suffix)
+            renderizar_pergunta("54. Ciência da Eng. Química", "termo_54", key_suffix=k_suffix)
+        with st.expander("FENÔMENOS DE TRANSPORTE E MECÂNICA DOS FLUIDOS", expanded=True):
+            renderizar_pergunta("26. Aplicar conhecimentos de fenômenos de transporte", "ft_26", key_suffix=k_suffix)
+            renderizar_pergunta("27. Comunicar-se tecnicamente e usar recursos gráficos", "ft_27", key_suffix=k_suffix)
+            renderizar_pergunta("28. Implantar, implementar e controlar soluções", "mecflu_28", key_suffix=k_suffix)
+            renderizar_pergunta("29. Operar e supervisionar instalações", "mecflu_29", key_suffix=k_suffix)
         
         st.markdown("---")
         col1, col2 = st.columns([0.8, 0.2])
@@ -297,21 +314,22 @@ if modo_operacao == "📝 Nova Transcrição":
             st.button("SALVAR RASCUNHO E AVANÇAR ➡️", on_click=navegar_proxima, key="btn_nav3")
             st.markdown('</div>', unsafe_allow_html=True)
 
+    # --- SEÇÃO 4 ---
     elif secao_ativa == SECOES[3]:
         st.markdown("### 4. DISCIPLINAS PROFISSIONALIZANTES")
-        with st.expander("OPERAÇÕES UNITÁRIAS", expanded=True):
-            renderizar_pergunta("30. Inspecionar e coordenar manutenção", "op1_30")
-            renderizar_pergunta("55. Tecnologia Industrial", "op1_55")
-            renderizar_pergunta("31. Elaborar estudos de impactos ambientais", "op2_31")
-            renderizar_pergunta("32. Projetar processos de tratamento ambiental", "op2_32")
+        with st.expander("OPERAÇÕES UNITÁRIAS (I e II)", expanded=True):
+            renderizar_pergunta("30. Inspecionar e coordenar manutenção", "op1_30", key_suffix=k_suffix)
+            renderizar_pergunta("55. Tecnologia Industrial", "op1_55", key_suffix=k_suffix)
+            renderizar_pergunta("31. Elaborar estudos de impactos ambientais", "op2_31", key_suffix=k_suffix)
+            renderizar_pergunta("32. Projetar processos de tratamento ambiental", "op2_32", key_suffix=k_suffix)
         with st.expander("REATORES QUÍMICOS", expanded=True):
-            renderizar_pergunta("33. Gerir recursos estratégicos na produção", "reat_33")
-            renderizar_pergunta("34. Aplicar modelos de produção e controle de qualidade", "reat_34")
-        with st.expander("CONTROLE E PROJETOS", expanded=True):
-            renderizar_pergunta("35. Controle e supervisão de instalações", "ctrl_35")
-            renderizar_pergunta("36. Gestão de empreendimentos industriais", "ctrl_36")
-            renderizar_pergunta("56. Projetos Industriais e Gestão", "proj_56")
-            renderizar_pergunta("57. Ética, Meio Ambiente e Humanidades", "proj_57")
+            renderizar_pergunta("33. Gerir recursos estratégicos na produção", "reat_33", key_suffix=k_suffix)
+            renderizar_pergunta("34. Aplicar modelos de produção e controle de qualidade", "reat_34", key_suffix=k_suffix)
+        with st.expander("CONTROLE DE PROCESSOS E PROJETOS", expanded=True):
+            renderizar_pergunta("35. Controle e supervisão de instalações", "ctrl_35", key_suffix=k_suffix)
+            renderizar_pergunta("36. Gestão de empreendimentos industriais", "ctrl_36", key_suffix=k_suffix)
+            renderizar_pergunta("56. Projetos Industriais e Gestão", "proj_56", key_suffix=k_suffix)
+            renderizar_pergunta("57. Ética, Meio Ambiente e Humanidades", "proj_57", key_suffix=k_suffix)
         
         st.markdown("---")
         col1, col2 = st.columns([0.8, 0.2])
@@ -320,33 +338,34 @@ if modo_operacao == "📝 Nova Transcrição":
             st.button("SALVAR RASCUNHO E AVANÇAR ➡️", on_click=navegar_proxima, key="btn_nav4")
             st.markdown('</div>', unsafe_allow_html=True)
 
+    # --- SEÇÃO 5 ---
     elif secao_ativa == SECOES[4]:
-        st.markdown("### 5. AVANÇADAS E COMPLEMENTARES")
-        with st.expander("GESTÃO E AMBIENTAL", expanded=True):
-            renderizar_pergunta("37. Eng. Econômica: Aprender novos conceitos", "econ_37")
-            renderizar_pergunta("38. Eng. Econômica: Visão global", "econ_38")
-            renderizar_pergunta("39. Gestão Produção: Comprometimento", "gest_39")
-            renderizar_pergunta("40. Gestão Produção: Resultados", "gest_40")
-            renderizar_pergunta("41. Eng. Ambiental: Inovação", "amb_41")
-            renderizar_pergunta("42. Eng. Ambiental: Situações novas", "amb_42")
-            renderizar_pergunta("43. Segurança: Incertezas", "seg_43")
-            renderizar_pergunta("44. Segurança: Decisão", "seg_44")
-        with st.expander("PRÁTICAS (LAB/ESTÁGIO)", expanded=True):
-            renderizar_pergunta("45. Laboratório: Criatividade", "lab_45")
-            renderizar_pergunta("46. Laboratório: Relacionamento", "lab_46")
-            renderizar_pergunta("47. Estágio: Autocontrole emocional", "est_47")
-            renderizar_pergunta("48. Estágio: Capacidade empreendedora", "est_48")
-        with st.expander("OPTATIVAS E INTEGRADORAS", expanded=True):
-            renderizar_pergunta("49. Biotec: Analisar dados", "bio_49")
-            renderizar_pergunta("50. Biotec: Novas ferramentas", "bio_50")
-            renderizar_pergunta("51. Petróleo: Recuperação", "petro_51")
-            renderizar_pergunta("52. Petróleo: Reatores", "petro_52")
-            renderizar_pergunta("57. Simulação: Dados", "sim_57")
-            renderizar_pergunta("58. Simulação: Comunicação", "sim_58")
-            renderizar_pergunta("59. Otimização: Soluções", "otim_59")
-            renderizar_pergunta("60. Otimização: Modelos", "otim_60")
-            renderizar_pergunta("61. TCC: Comunicação", "tcc_61")
-            renderizar_pergunta("62. TCC: Liderança", "tcc_62")
+        st.markdown("### 5. DISCIPLINAS AVANÇADAS E COMPLEMENTARES")
+        with st.expander("GESTÃO, ECONOMIA E MEIO AMBIENTE", expanded=True):
+            renderizar_pergunta("37. Eng. Econômica: Aprender novos conceitos", "econ_37", key_suffix=k_suffix)
+            renderizar_pergunta("38. Eng. Econômica: Visão global", "econ_38", key_suffix=k_suffix)
+            renderizar_pergunta("39. Gestão Produção: Comprometimento", "gest_39", key_suffix=k_suffix)
+            renderizar_pergunta("40. Gestão Produção: Resultados", "gest_40", key_suffix=k_suffix)
+            renderizar_pergunta("41. Eng. Ambiental: Inovação", "amb_41", key_suffix=k_suffix)
+            renderizar_pergunta("42. Eng. Ambiental: Novas situações", "amb_42", key_suffix=k_suffix)
+            renderizar_pergunta("43. Segurança: Lidar com incertezas", "seg_43", key_suffix=k_suffix)
+            renderizar_pergunta("44. Segurança: Decisão", "seg_44", key_suffix=k_suffix)
+        with st.expander("ATIVIDADES PRÁTICAS (LABORATÓRIO E ESTÁGIO)", expanded=True):
+            renderizar_pergunta("45. Laboratório: Criatividade", "lab_45", key_suffix=k_suffix)
+            renderizar_pergunta("46. Laboratório: Relacionamento", "lab_46", key_suffix=k_suffix)
+            renderizar_pergunta("47. Estágio: Autocontrole emocional", "est_47", key_suffix=k_suffix)
+            renderizar_pergunta("48. Estágio: Capacidade empreendedora", "est_48", key_suffix=k_suffix)
+        with st.expander("DISCIPLINAS OPTATIVAS E INTEGRADORAS", expanded=True):
+            renderizar_pergunta("49. Biotec: Dados", "bio_49", key_suffix=k_suffix)
+            renderizar_pergunta("50. Biotec: Ferramentas", "bio_50", key_suffix=k_suffix)
+            renderizar_pergunta("51. Petróleo: Recuperação", "petro_51", key_suffix=k_suffix)
+            renderizar_pergunta("52. Petróleo: Reatores", "petro_52", key_suffix=k_suffix)
+            renderizar_pergunta("57. Simulação: Dados", "sim_57", key_suffix=k_suffix)
+            renderizar_pergunta("58. Simulação: Comunicação", "sim_58", key_suffix=k_suffix)
+            renderizar_pergunta("59. Otimização: Soluções", "otim_59", key_suffix=k_suffix)
+            renderizar_pergunta("60. Otimização: Modelos", "otim_60", key_suffix=k_suffix)
+            renderizar_pergunta("61. TCC: Comunicação", "tcc_61", key_suffix=k_suffix)
+            renderizar_pergunta("62. TCC: Liderança", "tcc_62", key_suffix=k_suffix)
         
         st.markdown("---")
         col1, col2 = st.columns([0.8, 0.2])
@@ -355,70 +374,75 @@ if modo_operacao == "📝 Nova Transcrição":
             st.button("SALVAR RASCUNHO E AVANÇAR ➡️", on_click=navegar_proxima, key="btn_nav5")
             st.markdown('</div>', unsafe_allow_html=True)
 
-    elif secao_ativa == SECOES[5]: # Final
-        st.markdown("### 6. REFLEXÃO FINAL")
-        st.warning("⚠️ **ATENÇÃO:** O preenchimento desta seção é OBRIGATÓRIO para salvar.")
+    # --- SEÇÃO 6: REFLEXÃO FINAL ---
+    elif secao_ativa == SECOES[5]:
+        st.markdown("### 6. REFLEXÃO FINAL E AUTOAVALIAÇÃO")
+        st.warning("⚠️ **ATENÇÃO:** Preenchimento OBRIGATÓRIO. Se o aluno deixou em branco, digite 'EM BRANCO'.")
         
-        renderizar_pergunta("20. Capacidade de aprender rapidamente novos conceitos", "q20_indiv")
+        renderizar_pergunta("20. Capacidade de aprender novos conceitos", "q20_indiv", key_suffix=k_suffix)
         
         st.markdown("#### TRANSCRIÇÃO DAS RESPOSTAS ABERTAS")
         
-        # Recupera chave atual
-        k = st.session_state.form_key
-        
-        # Campos de Texto (Obrigatórios na validação)
-        st.text_area("Pontos Fortes (Obrigatório)", key=f"obs_fortes_{k}")
-        st.text_area("Pontos a Desenvolver (Obrigatório)", key=f"obs_fracos_{k}")
-        st.text_area("Contribuição Prática", key=f"obs_prat_{k}")
-        st.text_area("Exemplos de Aplicação", key=f"obs_ex_{k}")
-        st.text_area("Competências Futuras", key=f"obs_fut1_{k}")
-        st.text_area("Plano de Desenvolvimento", key=f"obs_fut2_{k}")
-        st.text_area("Comentários Finais", key=f"obs_final_{k}")
+        txt_fortes = st.text_area("Pontos Fortes (Obrigatório)", key=f"obs_fortes{k_suffix}")
+        txt_fracos = st.text_area("Pontos a Desenvolver (Obrigatório)", key=f"obs_fracos{k_suffix}")
+        txt_prat = st.text_area("Contribuição Prática", key=f"obs_prat{k_suffix}")
+        txt_ex = st.text_area("Exemplos de Aplicação", key=f"obs_ex{k_suffix}")
+        txt_fut1 = st.text_area("Competências Futuras", key=f"obs_fut1{k_suffix}")
+        txt_fut2 = st.text_area("Plano de Desenvolvimento", key=f"obs_fut2{k_suffix}")
+        txt_final = st.text_area("Comentários Finais", key=f"obs_final{k_suffix}")
 
         st.markdown("---")
         st.markdown('<div class="botao-final">', unsafe_allow_html=True)
         if st.button("💾 FINALIZAR E SALVAR REGISTRO", type="primary"):
-            # 1. Recuperar dados do session_state
-            k = st.session_state.form_key
-            dados = {}
             
-            # Dados de Identificação
-            dados["Petiano_Responsavel"] = st.session_state.get(f"ident_pet_{k}", "")
-            dados["Nome"] = st.session_state.get(f"ident_nome_{k}", "")
-            dados["Matricula"] = st.session_state.get(f"ident_mat_{k}", "")
-            dados["Semestre"] = st.session_state.get(f"ident_sem_{k}", "")
-            dados["Curriculo"] = st.session_state.get(f"ident_curr_{k}", "")
-            dados["Data_Registro"] = obter_hora_ceara()
+            # --- CONSOLIDAÇÃO DOS DADOS ---
+            # Identificação
+            dados_salvar = {
+                "Petiano_Responsavel": st.session_state.get(f"ident_pet{k_suffix}", ""),
+                "Nome": st.session_state.get(f"ident_nome{k_suffix}", ""),
+                "Matricula": st.session_state.get(f"ident_mat{k_suffix}", ""),
+                "Semestre": st.session_state.get(f"ident_sem{k_suffix}", ""),
+                "Curriculo": st.session_state.get(f"ident_curr{k_suffix}", ""),
+                "Data_Registro": obter_hora_ceara(),
+                # Textos
+                "Autoavaliação: Pontos Fortes": txt_fortes,
+                "Autoavaliação: Pontos a Desenvolver": txt_fracos,
+                "Contribuição Prática": txt_prat,
+                "Exemplos de Aplicação": txt_ex,
+                "Competências Futuras": txt_fut1,
+                "Plano de Desenvolvimento": txt_fut2,
+                "Observações Finais": txt_final
+            }
             
-            # Dados das Perguntas (Varredura)
-            for key in st.session_state:
-                if key.endswith(f"_{k}"):
-                    if key.startswith("nota_"):
-                        col_name = key.replace("nota_", "").replace(f"_{k}", "")
-                        dados[col_name] = st.session_state[key]
-                    elif key.startswith("obs_"):
-                        col_name = "Obs_" + key.replace("obs_", "").replace(f"_{k}", "")
-                        dados[col_name] = st.session_state[key]
+            # Perguntas Dinâmicas (Sliders e Obs)
+            for k, v in st.session_state.items():
+                if k.endswith(k_suffix):
+                    if k.startswith("nota_"):
+                        col_name = k.replace("nota_", "").replace(k_suffix, "")
+                        dados_salvar[col_name] = v
+                    elif k.startswith("obs_") and "fortes" not in k and "fracos" not in k: # Evita duplicar textos finais
+                        col_name = "Obs_" + k.replace("obs_", "").replace(k_suffix, "")
+                        dados_salvar[col_name] = v
 
-            # 2. Validação
+            # VALIDAÇÃO
             erros = []
-            if not dados.get("Nome"): erros.append("Nome do Discente")
-            if not dados.get("Petiano_Responsavel"): erros.append("Petiano Responsável")
-            if not dados.get("Obs_fortes") or not dados.get("Obs_fracos"):
-                erros.append("Campos de Reflexão (Digite 'EM BRANCO' se vazio)")
+            if not dados_salvar["Nome"]: erros.append("Nome do Discente")
+            if not dados_salvar["Petiano_Responsavel"]: erros.append("Petiano Responsável")
+            if not dados_salvar["Autoavaliação: Pontos Fortes"] or not dados_salvar["Autoavaliação: Pontos a Desenvolver"]:
+                erros.append("Campos de Reflexão Final")
 
             if erros:
-                st.error(f"❌ IMPOSSÍVEL SALVAR: {', '.join(erros)}")
+                st.error(f"❌ AÇÃO BLOQUEADA. Preencha: {', '.join(erros)}")
             else:
                 try:
-                    df_new = pd.DataFrame([dados])
+                    df_new = pd.DataFrame([dados_salvar])
                     if os.path.exists(ARQUIVO_DB):
                         df_new.to_csv(ARQUIVO_DB, mode='a', header=False, index=False)
                     else:
                         df_new.to_csv(ARQUIVO_DB, mode='w', header=True, index=False)
                     
                     st.balloons()
-                    st.success(f"✅ Registro de {dados['Nome']} salvo com sucesso!")
+                    st.success(f"✅ Transcrição de {dados_salvar['Nome']} salva com sucesso!")
                     limpar_formulario()
                     st.rerun()
                 except PermissionError:
@@ -426,12 +450,53 @@ if modo_operacao == "📝 Nova Transcrição":
                 except Exception as e:
                     st.error(f"❌ ERRO: {e}")
         st.markdown('</div>', unsafe_allow_html=True)
-        
-    # Auto-Save Executa a cada interação
+    
     salvar_estado()
 
 # ==============================================================================
-# LÓGICA 2: PAINEL GERENCIAL
+# LÓGICA 2: MODO DE EDIÇÃO E CORREÇÃO
+# ==============================================================================
+elif modo_operacao == "✏️ Editar Registro Existente":
+    st.markdown("### ✏️ MODO DE EDIÇÃO DE REGISTROS")
+    st.info("Utilize para corrigir erros de digitação. As alterações sobrescrevem o registro original.")
+    
+    if not os.path.exists(ARQUIVO_DB):
+        st.warning("Banco de dados vazio.")
+    else:
+        try:
+            df = pd.read_csv(ARQUIVO_DB, dtype=str)
+            if df.empty: st.warning("Nenhum dado.")
+            else:
+                opcoes = df.apply(lambda x: f"{x.name} | {x['Nome']} ({x['Matricula']})", axis=1)
+                sel = st.selectbox("Selecione o Aluno:", opcoes)
+                idx = int(sel.split(" | ")[0])
+                dados = df.iloc[idx]
+                
+                with st.expander("📝 Editar Dados Cadastrais", expanded=True):
+                    c1, c2 = st.columns(2)
+                    new_nome = c1.text_input("Nome", value=dados["Nome"])
+                    new_mat = c2.text_input("Matrícula", value=dados["Matricula"])
+                
+                with st.expander("🔢 Editar Notas Específicas"):
+                    cols_notas = [c for c in df.columns if c not in ['Nome', 'Matricula', 'Data_Registro'] and not c.startswith("Obs") and not c.startswith("Auto") and not c.startswith("Petiano")]
+                    col_edit = st.selectbox("Escolha a competência:", cols_notas)
+                    
+                    val_atual = dados[col_edit] if col_edit in dados else "N/A"
+                    if val_atual not in ["N/A", "0", "1", "2", "3", "4", "5"]: val_atual = "N/A"
+                    
+                    new_val = st.select_slider(f"Nova Nota para: {col_edit}", options=["N/A", "0", "1", "2", "3", "4", "5"], value=val_atual)
+                
+                if st.button("💾 ATUALIZAR REGISTRO NO BANCO"):
+                    df.at[idx, "Nome"] = new_nome
+                    df.at[idx, "Matricula"] = new_mat
+                    df.at[idx, col_edit] = new_val
+                    df.to_csv(ARQUIVO_DB, index=False)
+                    st.success("Registro atualizado com sucesso!")
+                    st.rerun()
+        except Exception as e: st.error(f"Erro: {e}")
+
+# ==============================================================================
+# LÓGICA 3: PAINEL GERENCIAL
 # ==============================================================================
 elif modo_operacao == "📊 Painel Gerencial":
     st.markdown("### 📊 INDICADORES DE DESEMPENHO")
@@ -443,27 +508,25 @@ elif modo_operacao == "📊 Painel Gerencial":
             c1, c2, c3 = st.columns(3)
             c1.metric("Formulários", len(df))
             
-            # Filtro Inteligente: Remove colunas que não são notas
+            # Filtro Inteligente
             ignorar = ['Nome', 'Matricula', 'Semestre', 'Curriculo', 'Data_Registro', 'Petiano_Responsavel']
-            cols_notas = [c for c in df.columns if c not in ignorar and not c.startswith("Obs_")]
+            cols_notas = [c for c in df.columns if c not in ignorar and not c.startswith("Obs") and not c.startswith("Auto") and not c.startswith("Contribuição") and not c.startswith("Exemplos") and not c.startswith("Competências") and not c.startswith("Plano") and not c.startswith("Comentários")]
             
-            # Converte "N/A" para NaN e calcula média ignorando-os
+            # Média ignorando N/A
             df_nums = df[cols_notas].apply(pd.to_numeric, errors='coerce')
-            
             if not df_nums.empty:
                 media = df_nums.mean().mean()
-                c2.metric("Média Geral (Exclui N/A)", f"{media:.2f}/5.0")
+                c2.metric("Média Geral (Válidas)", f"{media:.2f}/5.0")
             
             if 'Data_Registro' in df.columns:
                 last = pd.to_datetime(df['Data_Registro']).max()
-                c3.metric("Última Atividade", last.strftime("%d/%m %H:%M"))
+                c3.metric("Último Registro", last.strftime("%d/%m %H:%M"))
             
             st.markdown("---")
-            st.markdown("#### Detalhamento")
             st.dataframe(df, use_container_width=True, height=500)
             
             csv = df.to_csv(index=False).encode('utf-8-sig')
             st.download_button("📥 Baixar Backup (Excel)", csv, f"sac_backup_{datetime.now().strftime('%Y%m%d')}.csv", "text/csv")
-        except Exception as e: st.error(f"Erro no banco: {e}")
+        except Exception as e: st.error(f"Erro: {e}")
     else:
         st.info("Nenhum dado.")
