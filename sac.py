@@ -18,14 +18,13 @@ ARQUIVO_DB = "respostas_sac_deq.csv"
 ARQUIVO_BACKUP = "_backup_autosave.json"
 
 # ==============================================================================
-# 2. ESTILO VISUAL RESPONSIVO (CSS AVANÇADO)
+# 2. ESTILO VISUAL RESPONSIVO (CSS)
 # ==============================================================================
 st.markdown("""
     <style>
     /* VARIÁVEIS GERAIS */
     :root {
         --primary-color: #002060; /* Azul Institucional PET/UFC */
-        --accent-color: #dba800; /* Dourado UFC */
     }
 
     /* TIPOGRAFIA E BASE */
@@ -39,9 +38,9 @@ st.markdown("""
         letter-spacing: 0.05em;
     }
     
-    /* AJUSTE PARA MODO ESCURO (DARK MODE) */
+    /* MODO ESCURO */
     @media (prefers-color-scheme: dark) {
-        h1, h2, h3, h4 { color: #82b1ff !important; } /* Azul claro para contraste */
+        h1, h2, h3, h4 { color: #82b1ff !important; }
         .pergunta-card { 
             background-color: #1e1e1e !important; 
             border: 1px solid #333 !important; 
@@ -57,7 +56,7 @@ st.markdown("""
         }
     }
 
-    /* MODO CLARO (LIGHT MODE) */
+    /* MODO CLARO */
     @media (prefers-color-scheme: light) {
         .pergunta-card { 
             background-color: #f8f9fa !important; 
@@ -66,7 +65,7 @@ st.markdown("""
         }
     }
 
-    /* CARD DA PERGUNTA (Estrutura) */
+    /* CARD DA PERGUNTA */
     .pergunta-card {
         border-radius: 8px;
         padding: 20px;
@@ -81,7 +80,7 @@ st.markdown("""
         opacity: 0.95;
     }
 
-    /* BOTÕES DE NAVEGAÇÃO */
+    /* BOTÕES */
     .stButton button {
         border-radius: 6px;
         font-weight: 700;
@@ -91,7 +90,7 @@ st.markdown("""
         width: 100%;
     }
     
-    /* Estilo Botão "Próximo" */
+    /* Botão "Próximo" */
     .botao-avancar button {
         background-color: transparent;
         border: 2px solid #002060;
@@ -100,10 +99,10 @@ st.markdown("""
     .botao-avancar button:hover {
         background-color: #002060;
         color: white;
-        transform: translateX(5px); /* Efeito de mover para direita */
+        transform: translateX(5px);
     }
 
-    /* Estilo Botão "Finalizar" */
+    /* Botão "Finalizar" */
     .botao-final button {
         background-color: #002060 !important;
         color: white !important;
@@ -117,15 +116,7 @@ st.markdown("""
         transform: scale(1.02);
     }
 
-    /* HEADER */
-    .header-div {
-        text-align: center;
-        margin-bottom: 30px;
-        padding-bottom: 20px;
-        border-bottom: 2px solid rgba(128,128,128,0.2);
-    }
-
-    /* Ocultar menus padrão */
+    /* Ocultar menus */
     #MainMenu {visibility: hidden;} 
     footer {visibility: hidden;}
     </style>
@@ -135,7 +126,7 @@ st.markdown("""
 # 3. CABEÇALHO INSTITUCIONAL
 # ==============================================================================
 st.markdown("""
-    <div class="header-div">
+    <div style="text-align: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 2px solid rgba(128,128,128,0.2);">
         <h1 style="margin: 0; font-size: 2.5rem;">S.A.C.</h1>
         <div style="font-size: 1.2rem; font-weight: 600; opacity: 0.8;">SISTEMA DE AVALIAÇÃO CURRICULAR - MÓDULO DE TRANSCRIÇÃO</div>
         <div style="font-size: 0.9rem; opacity: 0.6; margin-top: 5px;">PET ENGENHARIA QUÍMICA - UNIVERSIDADE FEDERAL DO CEARÁ</div>
@@ -143,7 +134,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==============================================================================
-# 4. GERENCIAMENTO DE ESTADO E LÓGICA
+# 4. GERENCIAMENTO DE ESTADO
 # ==============================================================================
 SECOES = [
     "1. Competências Gerais", 
@@ -155,26 +146,15 @@ SECOES = [
     "📊 Painel Gerencial"
 ]
 
-# Inicialização de Variáveis de Estado
 if 'form_key' not in st.session_state: st.session_state.form_key = 0
 if 'navegacao_atual' not in st.session_state: st.session_state.navegacao_atual = SECOES[0]
 
-def auto_save():
-    """Salva o estado atual em um arquivo JSON local."""
-    try:
-        with open(ARQUIVO_BACKUP, "w", encoding='utf-8') as f:
-            # Filtra apenas dados serializáveis
-            dados = {k:v for k,v in st.session_state.items() if isinstance(v, (str, int, float, bool))}
-            json.dump(dados, f, indent=4, ensure_ascii=False)
-    except: pass
-
 def navegar_proxima():
-    """Avança para a próxima seção e aciona o Auto-Save."""
+    """Avança para a próxima seção."""
     try:
         idx = SECOES.index(st.session_state.navegacao_atual)
         if idx < len(SECOES) - 1:
             st.session_state.navegacao_atual = SECOES[idx + 1]
-            auto_save() # Salva backup
             st.rerun()
     except: pass
 
@@ -190,34 +170,29 @@ def obter_hora_ceara():
     return datetime.now(fuso).strftime("%Y-%m-%d %H:%M:%S")
 
 def renderizar_pergunta(texto_pergunta, id_unica):
-    """
-    Renderiza o bloco de pergunta com suporte a 'N/A' (Não Respondeu).
-    """
+    """Renderiza pergunta com opção N/A."""
     with st.container():
         st.markdown(f"""<div class="pergunta-card"><div class="pergunta-texto">{texto_pergunta}</div></div>""", unsafe_allow_html=True)
         
         c1, c2 = st.columns([0.55, 0.45])
         with c1:
-            # A lista de opções começa com N/A
-            opcoes = ["N/A", "0", "1", "2", "3", "4", "5"]
             val = st.select_slider(
                 "Nível de Competência", 
-                options=opcoes, 
-                value="N/A", # Valor padrão é N/A para evitar viés de zero
+                options=["N/A", "0", "1", "2", "3", "4", "5"], 
+                value="N/A", 
                 key=f"nota_{id_unica}_{st.session_state.form_key}",
                 help="Selecione 'N/A' se o discente não preencheu este item."
             )
         with c2:
             obs = st.text_input(
                 "Observações de Transcrição", 
-                placeholder="Transcreva comentários, se houver...", 
+                placeholder="Transcreva comentários...", 
                 key=f"obs_{id_unica}_{st.session_state.form_key}"
             )
-            
     return val, obs
 
 # ==============================================================================
-# 5. BARRA LATERAL (IDENTIFICAÇÃO)
+# 5. BARRA LATERAL
 # ==============================================================================
 respostas = {}
 
@@ -228,8 +203,7 @@ with st.sidebar:
         st.markdown("### REGISTRO DE DADOS")
         
         lista_petianos = sorted([
-            "",
-            "Ana Carolina", "Ana Clara", "Ana Júlia", 
+            "", "Ana Carolina", "Ana Clara", "Ana Júlia", 
             "Eric Rullian", "Gildelandio Junior", 
             "Lucas Mossmann (trainee)", "Pedro Paulo"
         ])
@@ -246,24 +220,11 @@ with st.sidebar:
 
     with tab_ajuda:
         st.markdown("### 📘 GUIA DO TRANSCRITOR")
-        
-        st.info("""
-        **OPÇÃO 'N/A' (Não se Aplica):**
-        Utilize esta opção no slider quando:
-        * O campo estiver em branco.
-        * A resposta estiver rasurada.
-        * **Nota:** 'N/A' é ignorado na média (não conta como zero).
-        """)
-        
-        st.markdown("---")
-        st.warning("""
-        **SEÇÃO FINAL OBRIGATÓRIA:**
-        O sistema **não permitirá salvar** se os campos de Reflexão Final estiverem vazios.
-        * Se não houver resposta no papel, digite: **"EM BRANCO"**.
-        """)
+        st.info("Use **N/A** para campos em branco ou rasurados (não conta na média).")
+        st.warning("**Atenção:** A seção final é obrigatória. Digite 'EM BRANCO' se necessário.")
 
 # ==============================================================================
-# 6. MENU DE NAVEGAÇÃO SUPERIOR
+# 6. MENU DE NAVEGAÇÃO
 # ==============================================================================
 secao_ativa = st.radio(
     "Navegação Rápida", 
@@ -275,7 +236,7 @@ secao_ativa = st.radio(
 st.markdown("---")
 
 # ==============================================================================
-# 7. CONTEÚDO DAS SEÇÕES (LÓGICA PRINCIPAL)
+# 7. CONTEÚDO DAS SEÇÕES
 # ==============================================================================
 
 # --- SEÇÃO 1 ---
@@ -322,7 +283,7 @@ elif secao_ativa == SECOES[1]:
 
 # --- SEÇÃO 3 ---
 elif secao_ativa == SECOES[2]:
-    st.markdown("### 3. DISCIPLINAS DE FORMAÇÃO BÁSICA")
+    st.markdown("### 3. DISCIPLINAS BÁSICAS")
     with st.expander("CÁLCULO DIFERENCIAL E INTEGRAL", expanded=True):
         respostas["Cálculo: Dados"], respostas["Obs_C1"] = renderizar_pergunta("21. Analisar grandes volumes de dados", "calc_21")
         respostas["Cálculo: Formação"], respostas["Obs_C2"] = renderizar_pergunta("52. Formação Básica", "calc_52")
@@ -389,20 +350,13 @@ elif secao_ativa == SECOES[4]:
         respostas["Lab: Relacionam."], respostas["Obs_L2"] = renderizar_pergunta("46. Laboratório: Relacionamento", "lab_46")
         respostas["Estágio: Autocont."], respostas["Obs_E1"] = renderizar_pergunta("47. Estágio: Autocontrole emocional", "est_47")
         respostas["Estágio: Empreend."], respostas["Obs_E2"] = renderizar_pergunta("48. Estágio: Capacidade empreendedora", "est_48")
-    with st.expander("DISCIPLINAS OPTATIVAS", expanded=True):
+    with st.expander("DISCIPLINAS OPTATIVAS E INTEGRADORAS", expanded=True):
         respostas["Biotec: Dados"], respostas["Obs_B1"] = renderizar_pergunta("49. Biotecnologia: Analisar grandes volumes de dados", "bio_49")
         respostas["Biotec: Ferram."], respostas["Obs_B2"] = renderizar_pergunta("50. Biotecnologia: Novas ferramentas", "bio_50")
         respostas["Petro: Recuper."], respostas["Obs_P1"] = renderizar_pergunta("51. Petróleo e Gás: Projetar recuperação", "petro_51")
         respostas["Petro: Reatores"], respostas["Obs_P2"] = renderizar_pergunta("52. Petróleo e Gás: Projetar reatores", "petro_52")
-        respostas["Poli: Cinética"], respostas["Obs_Po1"] = renderizar_pergunta("53. Polímeros: Mecanismos cinéticos", "poli_53")
-        respostas["Poli: Produtos"], respostas["Obs_Po2"] = renderizar_pergunta("54. Polímeros: Conceber produtos", "poli_54")
-        respostas["Cat: Mecanismos"], respostas["Obs_Ca1"] = renderizar_pergunta("55. Catálise: Mecanismos de transformação", "cat_55")
-        respostas["Cat: Produção"], respostas["Obs_Ca2"] = renderizar_pergunta("56. Catálise: Aplicar na produção", "cat_56")
-    with st.expander("DISCIPLINAS INTEGRADORAS", expanded=True):
         respostas["Sim: Dados"], respostas["Obs_Si1"] = renderizar_pergunta("57. Simulação: Analisar dados", "sim_57")
         respostas["Sim: Comun."], respostas["Obs_Si2"] = renderizar_pergunta("58. Simulação: Comunicação técnica", "sim_58")
-        respostas["Otim: Soluções"], respostas["Obs_Ot1"] = renderizar_pergunta("59. Otimização: Soluções para problemas", "otim_59")
-        respostas["Otim: Modelos"], respostas["Obs_Ot2"] = renderizar_pergunta("60. Otimização: Modelos de produção", "otim_60")
         respostas["TCC: Comun."], respostas["Obs_Tc1"] = renderizar_pergunta("61. TCC: Comunicação escrita/oral", "tcc_61")
         respostas["TCC: Liderança"], respostas["Obs_Tc2"] = renderizar_pergunta("62. TCC: Liderar equipes", "tcc_62")
     
@@ -416,8 +370,7 @@ elif secao_ativa == SECOES[4]:
 # --- SEÇÃO 6: REFLEXÃO FINAL (OBRIGATÓRIA) ---
 elif secao_ativa == SECOES[5]:
     st.markdown("### 6. REFLEXÃO FINAL E AUTOAVALIAÇÃO")
-    st.warning("⚠️ **ATENÇÃO:** Preenchimento OBRIGATÓRIO para finalizar a transcrição.")
-    st.info("Caso o formulário físico esteja em branco, digite **'EM BRANCO'** nos campos abaixo.")
+    st.warning("⚠️ **ATENÇÃO:** Preenchimento OBRIGATÓRIO. Se o formulário físico estiver vazio, digite 'EM BRANCO'.")
     
     respostas["20. Capacidade de Aprendizado"], respostas["Obs_20"] = renderizar_pergunta("20. Capacidade de aprender rapidamente novos conceitos (Geral)", "q20_indiv")
     
@@ -435,18 +388,16 @@ elif secao_ativa == SECOES[5]:
     st.markdown("---")
     st.markdown('<div class="botao-final">', unsafe_allow_html=True)
     if st.button("💾 FINALIZAR TRANSCRIÇÃO", type="primary"):
-        # VALIDAR CAMPOS OBRIGATÓRIOS
+        # VALIDAÇÃO DE OBRIGATORIEDADE
         erros = []
         if not respostas["Nome"]: erros.append("Nome do Discente")
         if not respostas["Petiano_Responsavel"]: erros.append("Responsável pela Transcrição")
         
-        # Validação específica da seção 6
         if not respostas["Autoavaliação: Pontos Fortes"] or not respostas["Autoavaliação: Pontos a Desenvolver"]:
             erros.append("Campos de Texto da Reflexão Final")
 
         if erros:
             st.error(f"❌ AÇÃO BLOQUEADA. Preencha os seguintes campos: {', '.join(erros)}")
-            st.toast("Preencha os campos obrigatórios!", icon="🚫")
         else:
             try:
                 df_new = pd.DataFrame([respostas])
@@ -465,36 +416,22 @@ elif secao_ativa == SECOES[5]:
                 st.error(f"❌ ERRO INESPERADO: {e}")
     st.markdown('</div>', unsafe_allow_html=True)
 
-# --- AUTO-SAVE ---
-try:
-    with open(ARQUIVO_BACKUP, "w", encoding='utf-8') as f:
-        # Salva apenas dados compatíveis com JSON
-        dados_salvos = {k:v for k,v in respostas.items() if isinstance(v, (str, int, float, bool))}
-        json.dump(dados_salvos, f, indent=4, ensure_ascii=False)
-except: pass
-
-# ==============================================================================
-# 7. DASHBOARD (PAINEL GERENCIAL)
-# ==============================================================================
+# --- SEÇÃO 7: DASHBOARD ---
 elif secao_ativa == SECOES[6]:
     st.markdown("### 📊 STATUS DA DIGITALIZAÇÃO")
     
     if os.path.exists(ARQUIVO_DB):
         try:
-            # Carrega banco de dados
             df = pd.read_csv(ARQUIVO_DB, dtype={'Matricula': str})
             
             c1, c2, c3 = st.columns(3)
             c1.metric("Formulários Digitados", len(df))
             
-            # FILTRAGEM INTELIGENTE DE COLUNAS
-            # Removemos identificação, textos abertos e "N/A" para calcular a média
+            # FILTRAGEM INTELIGENTE (Ignora textos e N/A)
             cols_ignorar = [
                 'Nome', 'Matricula', 'Semestre', 'Curriculo', 'Data_Registro', 'Petiano_Responsavel'
             ]
-            
-            # Seleciona colunas que podem conter notas (exclui textos de observação e reflexão)
-            cols_potenciais_notas = [
+            cols_potenciais = [
                 c for c in df.columns 
                 if c not in cols_ignorar 
                 and not c.startswith("Obs") 
@@ -506,24 +443,24 @@ elif secao_ativa == SECOES[6]:
                 and not c.startswith("Comentários")
             ]
             
-            # Converte para numérico. "N/A" vira NaN (Not a Number) e é ignorado na média
-            df_numeric = df[cols_potenciais_notas].apply(pd.to_numeric, errors='coerce')
+            # Converte "N/A" para NaN (Ignorado na média)
+            df_numeric = df[cols_potenciais].apply(pd.to_numeric, errors='coerce')
             
             if not df_numeric.empty:
-                media_geral = df_numeric.mean().mean()
-                c2.metric("Média Geral (Excluindo N/A)", f"{media_geral:.2f}/5.0")
+                media = df_numeric.mean().mean()
+                c2.metric("Média Geral (Válidas)", f"{media:.2f}/5.0")
             
             if 'Data_Registro' in df.columns:
                 last = pd.to_datetime(df['Data_Registro']).max()
                 c3.metric("Último Registro", last.strftime("%d/%m/%Y às %H:%M"))
             
             st.markdown("---")
-            st.markdown("#### Conferência da Base de Dados")
+            st.markdown("#### Conferência de Dados")
             st.dataframe(df, use_container_width=True, height=500)
             
             csv = df.to_csv(index=False).encode('utf-8-sig')
             st.download_button(
-                label="📥 Baixar Dados Completos (Excel/CSV)", 
+                label="📥 Baixar Dados Completos (Excel)", 
                 data=csv, 
                 file_name=f"sac_backup_{datetime.now().strftime('%Y%m%d')}.csv", 
                 mime="text/csv"
@@ -532,3 +469,11 @@ elif secao_ativa == SECOES[6]:
             st.error(f"Erro ao carregar banco de dados: {e}")
     else:
         st.info("Nenhum formulário digitalizado até o momento.")
+
+# --- AUTO-SAVE (Sempre no final) ---
+try:
+    with open(ARQUIVO_BACKUP, "w", encoding='utf-8') as f:
+        # Salva apenas dados compatíveis
+        dados = {k:v for k,v in respostas.items() if isinstance(v, (str, int, float, bool))}
+        json.dump(dados, f, indent=4, ensure_ascii=False)
+except: pass
