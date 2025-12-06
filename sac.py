@@ -11,7 +11,7 @@ from datetime import datetime, timedelta, timezone
 st.set_page_config(
     page_title="S.A.C. - PET Engenharia Química", 
     layout="wide", 
-    page_icon="📊", 
+    page_icon="📝", 
     initial_sidebar_state="expanded"
 )
 
@@ -98,20 +98,27 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==============================================================================
-# 4. FUNÇÕES DE SUPORTE
+# 4. FUNÇÕES DE SUPORTE E LISTAS GLOBAIS
 # ==============================================================================
 SECOES = [
     "1. Gerais", "2. Específicas", "3. Básicas", 
     "4. Profissionais", "5. Avançadas", "6. Reflexão"
 ]
 
+# Listas globais
 LISTA_PETIANOS = sorted([
     "", "Ana Carolina", "Ana Clara", "Ana Júlia", 
     "Eric Rullian", "Gildelandio Junior", 
     "Lucas Mossmann (trainee)", "Pedro Paulo"
 ])
 LISTA_SEMESTRES = [f"{i}º Semestre" for i in range(1, 11)]
-LISTA_CURRICULOS = ["Novo (2023.1)", "Antigo (2005.1)"]
+
+# --- ATUALIZAÇÃO DA LISTA DE CURRÍCULOS ---
+LISTA_CURRICULOS = [
+    "Novo (2023.1)", 
+    "Antigo (2005.1)", 
+    "Troca de Matriz (Velha -> Nova)"
+]
 
 if 'form_key' not in st.session_state: st.session_state.form_key = 0
 if 'navegacao_atual' not in st.session_state: st.session_state.navegacao_atual = SECOES[0]
@@ -158,6 +165,9 @@ def obter_hora_ceara():
     return datetime.now(fuso).strftime("%Y-%m-%d %H:%M:%S")
 
 def renderizar_pergunta(texto_pergunta, id_unica, valor_padrao="N/A", obs_padrao="", key_suffix=""):
+    """
+    Renderiza o bloco de pergunta.
+    """
     k = key_suffix if key_suffix else f"_{st.session_state.form_key}"
     
     with st.container():
@@ -181,13 +191,17 @@ def renderizar_pergunta(texto_pergunta, id_unica, valor_padrao="N/A", obs_padrao
     return val, obs
 
 # ==============================================================================
-# 5. BARRA LATERAL
+# 5. BARRA LATERAL (MENU PRINCIPAL)
 # ==============================================================================
 respostas = {}
 
 with st.sidebar:
     st.markdown("### ⚙️ MODO DE OPERAÇÃO")
-    modo_operacao = st.radio("Ação:", ["📝 Nova Transcrição", "✏️ Editar Registro", "📊 Painel Gerencial"], label_visibility="collapsed")
+    modo_operacao = st.radio(
+        "Selecione:",
+        ["📝 Nova Transcrição", "✏️ Editar Registro", "📊 Painel Gerencial"],
+        label_visibility="collapsed"
+    )
     st.markdown("---")
 
     if modo_operacao == "📝 Nova Transcrição":
@@ -222,7 +236,7 @@ with st.sidebar:
                 * **N/A (Não se Aplica):** Use OBRIGATORIAMENTE quando:
                     * O campo está em branco.
                     * Há rasura que impede identificar a nota.
-                    * O aluno marcou duas opções.
+                    * O aluno marcou duas opções (ex: 3 e 4).
                 * **Nota:** N/A não conta na média.
                 """)
 
@@ -478,6 +492,7 @@ elif modo_operacao == "✏️ Editar Registro":
                     new_nome = c1.text_input("Nome", value=dados.get("Nome", ""))
                     new_mat = c2.text_input("Matrícula", value=dados.get("Matricula", ""))
                     
+                    # Logica de Index
                     val_sem = dados.get("Semestre", "")
                     idx_sem = LISTA_SEMESTRES.index(val_sem) if val_sem in LISTA_SEMESTRES else 0
                     new_sem = c1.selectbox("Semestre", LISTA_SEMESTRES, index=idx_sem)
@@ -494,7 +509,6 @@ elif modo_operacao == "✏️ Editar Registro":
                     st.subheader("2. Correção de Notas Específicas")
                     st.info("Selecione a competência/disciplina abaixo para corrigir a nota lançada.")
                     
-                    # Filtra colunas de nota
                     cols_notas = [c for c in df.columns if c not in ['Nome', 'Matricula', 'Data_Registro', 'Semestre', 'Curriculo', 'Petiano_Responsavel'] and not c.startswith("Obs") and not c.startswith("Auto") and not c.startswith("Contribuição") and not c.startswith("Exemplos") and not c.startswith("Competências") and not c.startswith("Plano") and not c.startswith("Comentários") and not c.startswith("Observações")]
                     
                     col_edit = st.selectbox("Escolha o campo para editar:", cols_notas)
@@ -529,28 +543,33 @@ elif modo_operacao == "📊 Painel Gerencial":
         try:
             df = pd.read_csv(ARQUIVO_DB, dtype={'Matricula': str})
             
-            c1, c2, c3 = st.columns(3)
+            c1, c2, c3, c4 = st.columns(4) # 4 Colunas para caber Desvio Padrão
             c1.metric("Formulários", len(df))
             
             ignorar = ['Nome', 'Matricula', 'Semestre', 'Curriculo', 'Data_Registro', 'Petiano_Responsavel']
             cols_notas = [c for c in df.columns if c not in ignorar and not c.startswith("Obs") and not c.startswith("Auto") and not c.startswith("Contribuição") and not c.startswith("Exemplos") and not c.startswith("Competências") and not c.startswith("Plano") and not c.startswith("Comentários") and not c.startswith("Observações")]
             
             df_nums = df[cols_notas].apply(pd.to_numeric, errors='coerce')
+            
             if not df_nums.empty:
-                media = df_nums.mean().mean()
-                c2.metric("Média Geral (Exclui N/A)", f"{media:.2f}/5.0")
+                # Cálculo de Média e Desvio Padrão (Empilhando todos os dados)
+                todos_valores = df_nums.stack()
+                media = todos_valores.mean()
+                desvio = todos_valores.std()
+                
+                c2.metric("Média Geral", f"{media:.2f}/5.0")
+                c3.metric("Desvio Padrão", f"{desvio:.2f}")
             
             if 'Data_Registro' in df.columns:
                 last = pd.to_datetime(df['Data_Registro']).max()
-                c3.metric("Última Atividade", last.strftime("%d/%m %H:%M"))
+                c4.metric("Última Atividade", last.strftime("%d/%m %H:%M"))
             
             st.markdown("---")
             
             # --- SEÇÃO DE GRÁFICOS POR BLOCOS (DASHBOARD SEGMENTADO) ---
             st.markdown("#### 📈 Análise por Blocos de Competência")
             
-            # Dicionário de Prefixos/Palavras-chave para agrupar as colunas
-            # As chaves aqui devem bater com os textos que usamos no renderizar_pergunta
+            # Dicionário de Prefixos para agrupar
             grupos_analise = {
                 "Competências Gerais": ["1. ", "2. ", "3. ", "4. ", "5. ", "6. ", "7. ", "8. "],
                 "Competências Específicas": ["9. ", "10. ", "11. ", "12. ", "13. ", "14. ", "15. ", "16. ", "17. ", "18. ", "19. "],
@@ -577,6 +596,7 @@ elif modo_operacao == "📊 Painel Gerencial":
                                 text_auto='.2f',
                                 labels={'index': '', 'x': 'Média'},
                                 color=medias_grupo.values,
+                                # CORES DO PET: Vermelho (Ruim) -> Dourado (Médio) -> Azul (Bom)
                                 color_continuous_scale=[(0, '#d32f2f'), (0.5, '#dba800'), (1, '#002060')]
                             )
                             fig.update_layout(
@@ -589,7 +609,7 @@ elif modo_operacao == "📊 Painel Gerencial":
                             st.plotly_chart(fig, use_container_width=True)
 
             st.markdown("---")
-            st.markdown("#### Detalhamento Completo")
+            st.markdown("#### Detalhamento")
             st.dataframe(df, use_container_width=True, height=500)
             
             csv = df.to_csv(index=False).encode('utf-8-sig')
