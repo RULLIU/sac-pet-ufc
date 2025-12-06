@@ -105,20 +105,13 @@ SECOES = [
     "4. Profissionais", "5. Avançadas", "6. Reflexão"
 ]
 
-# Listas globais
 LISTA_PETIANOS = sorted([
     "", "Ana Carolina", "Ana Clara", "Ana Júlia", 
     "Eric Rullian", "Gildelandio Junior", 
     "Lucas Mossmann (trainee)", "Pedro Paulo"
 ])
 LISTA_SEMESTRES = [f"{i}º Semestre" for i in range(1, 11)]
-
-# --- ATUALIZAÇÃO DA LISTA DE CURRÍCULOS ---
-LISTA_CURRICULOS = [
-    "Novo (2023.1)", 
-    "Antigo (2005.1)", 
-    "Troca de Matriz (Velha -> Nova)"
-]
+LISTA_CURRICULOS = ["Novo (2023.1)", "Antigo (2005.1)", "Troca de Matriz (Velha -> Nova)"]
 
 if 'form_key' not in st.session_state: st.session_state.form_key = 0
 if 'navegacao_atual' not in st.session_state: st.session_state.navegacao_atual = SECOES[0]
@@ -236,7 +229,7 @@ with st.sidebar:
                 * **N/A (Não se Aplica):** Use OBRIGATORIAMENTE quando:
                     * O campo está em branco.
                     * Há rasura que impede identificar a nota.
-                    * O aluno marcou duas opções (ex: 3 e 4).
+                    * O aluno marcou duas opções.
                 * **Nota:** N/A não conta na média.
                 """)
 
@@ -467,7 +460,7 @@ if modo_operacao == "📝 Nova Transcrição":
     salvar_estado()
 
 # ==============================================================================
-# LÓGICA 2: MODO DE EDIÇÃO
+# LÓGICA 2: MODO DE EDIÇÃO (CORRIGIDO E COMPLETO)
 # ==============================================================================
 elif modo_operacao == "✏️ Editar Registro":
     st.markdown("### ✏️ MODO DE EDIÇÃO")
@@ -492,7 +485,7 @@ elif modo_operacao == "✏️ Editar Registro":
                     new_nome = c1.text_input("Nome", value=dados.get("Nome", ""))
                     new_mat = c2.text_input("Matrícula", value=dados.get("Matricula", ""))
                     
-                    # Logica de Index
+                    # Logica de Index Seguro
                     val_sem = dados.get("Semestre", "")
                     idx_sem = LISTA_SEMESTRES.index(val_sem) if val_sem in LISTA_SEMESTRES else 0
                     new_sem = c1.selectbox("Semestre", LISTA_SEMESTRES, index=idx_sem)
@@ -509,6 +502,7 @@ elif modo_operacao == "✏️ Editar Registro":
                     st.subheader("2. Correção de Notas Específicas")
                     st.info("Selecione a competência/disciplina abaixo para corrigir a nota lançada.")
                     
+                    # Filtra colunas de nota
                     cols_notas = [c for c in df.columns if c not in ['Nome', 'Matricula', 'Data_Registro', 'Semestre', 'Curriculo', 'Petiano_Responsavel'] and not c.startswith("Obs") and not c.startswith("Auto") and not c.startswith("Contribuição") and not c.startswith("Exemplos") and not c.startswith("Competências") and not c.startswith("Plano") and not c.startswith("Comentários") and not c.startswith("Observações")]
                     
                     col_edit = st.selectbox("Escolha o campo para editar:", cols_notas)
@@ -543,16 +537,30 @@ elif modo_operacao == "📊 Painel Gerencial":
         try:
             df = pd.read_csv(ARQUIVO_DB, dtype={'Matricula': str})
             
-            c1, c2, c3, c4 = st.columns(4) # 4 Colunas para caber Desvio Padrão
+            # FILTRO POR PETIANO
+            petianos_db = sorted(list(df['Petiano_Responsavel'].unique()))
+            filtro_pet = st.sidebar.selectbox("Filtrar por Responsável:", ["Todos"] + petianos_db)
+            
+            if filtro_pet != "Todos":
+                df = df[df['Petiano_Responsavel'] == filtro_pet]
+
+            # FILTRO POR SEMESTRE
+            sems_db = sorted(list(df['Semestre'].unique()))
+            filtro_sem = st.sidebar.selectbox("Filtrar por Semestre:", ["Todos"] + sems_db)
+            
+            if filtro_sem != "Todos":
+                df = df[df['Semestre'] == filtro_sem]
+
+            st.markdown("---")
+            c1, c2, c3, c4 = st.columns(4)
             c1.metric("Formulários", len(df))
             
             ignorar = ['Nome', 'Matricula', 'Semestre', 'Curriculo', 'Data_Registro', 'Petiano_Responsavel']
             cols_notas = [c for c in df.columns if c not in ignorar and not c.startswith("Obs") and not c.startswith("Auto") and not c.startswith("Contribuição") and not c.startswith("Exemplos") and not c.startswith("Competências") and not c.startswith("Plano") and not c.startswith("Comentários") and not c.startswith("Observações")]
             
             df_nums = df[cols_notas].apply(pd.to_numeric, errors='coerce')
-            
             if not df_nums.empty:
-                # Cálculo de Média e Desvio Padrão (Empilhando todos os dados)
+                # Cálculo de Média e Desvio Padrão
                 todos_valores = df_nums.stack()
                 media = todos_valores.mean()
                 desvio = todos_valores.std()
@@ -566,10 +574,9 @@ elif modo_operacao == "📊 Painel Gerencial":
             
             st.markdown("---")
             
-            # --- SEÇÃO DE GRÁFICOS POR BLOCOS (DASHBOARD SEGMENTADO) ---
+            # --- SEÇÃO DE GRÁFICOS POR BLOCOS (IDV PET SEM VERMELHO) ---
             st.markdown("#### 📈 Análise por Blocos de Competência")
             
-            # Dicionário de Prefixos para agrupar
             grupos_analise = {
                 "Competências Gerais": ["1. ", "2. ", "3. ", "4. ", "5. ", "6. ", "7. ", "8. "],
                 "Competências Específicas": ["9. ", "10. ", "11. ", "12. ", "13. ", "14. ", "15. ", "16. ", "17. ", "18. ", "19. "],
@@ -579,7 +586,6 @@ elif modo_operacao == "📊 Painel Gerencial":
             }
 
             for titulo_grupo, palavras_chave in grupos_analise.items():
-                # Filtra colunas que contêm qualquer uma das palavras-chave
                 cols_grupo = [c for c in cols_notas if any(palavra in c for palavra in palavras_chave)]
                 
                 if cols_grupo:
@@ -596,11 +602,11 @@ elif modo_operacao == "📊 Painel Gerencial":
                                 text_auto='.2f',
                                 labels={'index': '', 'x': 'Média'},
                                 color=medias_grupo.values,
-                                # CORES DO PET: Vermelho (Ruim) -> Dourado (Médio) -> Azul (Bom)
-                                color_continuous_scale=[(0, '#d32f2f'), (0.5, '#dba800'), (1, '#002060')]
+                                # CORES DO PET AJUSTADAS (CINZA -> DOURADO -> AZUL)
+                                color_continuous_scale=[(0, '#cfd8dc'), (0.5, '#dba800'), (1, '#002060')]
                             )
                             fig.update_layout(
-                                height=max(400, len(medias_grupo)*30), # Altura dinâmica
+                                height=max(400, len(medias_grupo)*30),
                                 paper_bgcolor='rgba(0,0,0,0)', 
                                 plot_bgcolor='rgba(0,0,0,0)',
                                 font=dict(family="Segoe UI, sans-serif", size=12),
