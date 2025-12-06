@@ -98,14 +98,13 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==============================================================================
-# 4. FUNÇÕES DE SUPORTE E LISTAS GLOBAIS
+# 4. FUNÇÕES DE SUPORTE
 # ==============================================================================
 SECOES = [
     "1. Gerais", "2. Específicas", "3. Básicas", 
     "4. Profissionais", "5. Avançadas", "6. Reflexão"
 ]
 
-# Listas globais
 LISTA_PETIANOS = sorted([
     "", "Ana Carolina", "Ana Clara", "Ana Júlia", 
     "Eric Rullian", "Gildelandio Junior", 
@@ -444,7 +443,7 @@ if modo_operacao == "📝 Nova Transcrição":
                 try:
                     df_new = pd.DataFrame([dados_salvar])
                     if os.path.exists(ARQUIVO_DB):
-                        # --- CORREÇÃO DE SEGURANÇA PARA ARQUIVOS ANTIGOS ---
+                        # Tenta mesclar
                         try:
                             df_antigo = pd.read_csv(ARQUIVO_DB, dtype=str)
                             if 'Data_Registro' not in df_antigo.columns:
@@ -469,7 +468,7 @@ if modo_operacao == "📝 Nova Transcrição":
     salvar_estado()
 
 # ==============================================================================
-# LÓGICA 2: MODO DE EDIÇÃO (CORRIGIDO E COMPLETO)
+# LÓGICA 2: MODO DE EDIÇÃO
 # ==============================================================================
 elif modo_operacao == "✏️ Editar Registro":
     st.markdown("### ✏️ MODO DE EDIÇÃO")
@@ -544,8 +543,8 @@ elif modo_operacao == "📊 Painel Gerencial":
     
     if os.path.exists(ARQUIVO_DB):
         try:
-            # Lê tudo como string primeiro para segurança
-            df = pd.read_csv(ARQUIVO_DB, dtype=str)
+            # Lê forçando Matrícula como texto
+            df = pd.read_csv(ARQUIVO_DB, dtype={'Matricula': str})
             
             # FILTRO POR SEMESTRE
             sems_db = sorted(list(df['Semestre'].unique())) if 'Semestre' in df.columns else []
@@ -558,11 +557,11 @@ elif modo_operacao == "📊 Painel Gerencial":
             c1, c2, c3, c4 = st.columns(4)
             c1.metric("Formulários", len(df))
             
-            # Separa colunas de notas
+            # Identificação de colunas de nota
             ignorar = ['Nome', 'Matricula', 'Semestre', 'Curriculo', 'Data_Registro', 'Petiano_Responsavel']
             cols_notas = [c for c in df.columns if c not in ignorar and not c.startswith("Obs") and not c.startswith("Auto") and not c.startswith("Contribuição") and not c.startswith("Exemplos") and not c.startswith("Competências") and not c.startswith("Plano") and not c.startswith("Comentários") and not c.startswith("Observações")]
             
-            # Converte para numérico (N/A vira NaN)
+            # Conversão segura para numérico (N/A vira NaN)
             df_nums = df[cols_notas].apply(pd.to_numeric, errors='coerce')
             
             if not df_nums.empty:
@@ -574,12 +573,15 @@ elif modo_operacao == "📊 Painel Gerencial":
                 c3.metric("Desvio Padrão", f"{desvio:.2f}")
             
             if 'Data_Registro' in df.columns:
-                last = pd.to_datetime(df['Data_Registro']).max()
-                c4.metric("Última Atividade", last.strftime("%d/%m %H:%M"))
+                try:
+                    last = pd.to_datetime(df['Data_Registro'], dayfirst=False).max()
+                    c4.metric("Última Atividade", last.strftime("%d/%m %H:%M"))
+                except:
+                    c4.metric("Última Atividade", "-")
             
             st.markdown("---")
             
-            # --- SEÇÃO DE GRÁFICOS POR BLOCOS ---
+            # --- GRÁFICOS POR BLOCOS (Cores Cinza -> Dourado -> Azul) ---
             st.markdown("#### 📈 Análise por Blocos de Competência")
             
             grupos_analise = {
@@ -607,7 +609,6 @@ elif modo_operacao == "📊 Painel Gerencial":
                                 text_auto='.2f',
                                 labels={'index': '', 'x': 'Média'},
                                 color=medias_grupo.values,
-                                # CORES DO PET: Cinza -> Dourado -> Azul
                                 color_continuous_scale=[(0, '#cfd8dc'), (0.5, '#dba800'), (1, '#002060')]
                             )
                             fig.update_layout(
