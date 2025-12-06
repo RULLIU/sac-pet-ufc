@@ -11,7 +11,7 @@ from datetime import datetime, timedelta, timezone
 st.set_page_config(
     page_title="S.A.C. - PET Engenharia Química", 
     layout="wide", 
-    page_icon="📊", 
+    page_icon="📝", 
     initial_sidebar_state="expanded"
 )
 
@@ -24,10 +24,15 @@ ARQUIVO_BACKUP = "_backup_autosave.json"
 st.markdown("""
     <style>
     /* VARIÁVEIS GERAIS */
-    :root { --primary-color: #002060; }
+    :root { 
+        --primary-color: #002060; /* Azul Institucional PET/UFC */
+        --secondary-color: #dba800; /* Dourado/Amarelo UFC */
+    }
+
+    /* TIPOGRAFIA E BASE */
     .stApp { font-family: 'Segoe UI', 'Roboto', sans-serif; }
     
-    /* TÍTULOS */
+    /* TÍTULOS ADAPTÁVEIS */
     h1, h2, h3, h4 {
         color: var(--primary-color) !important;
         font-weight: 800 !important;
@@ -35,22 +40,28 @@ st.markdown("""
         letter-spacing: 0.05em;
     }
     
-    /* MODO ESCURO */
+    /* MODO ESCURO (DARK MODE) */
     @media (prefers-color-scheme: dark) {
-        h1, h2, h3, h4 { color: #82b1ff !important; }
-        .pergunta-card { background-color: #1e1e1e !important; border-left: 5px solid #82b1ff !important; border: 1px solid #333 !important; }
+        h1, h2, h3, h4 { color: #82b1ff !important; } /* Azul claro para leitura no escuro */
+        .pergunta-card { 
+            background-color: #1e1e1e !important; 
+            border: 1px solid #333 !important; 
+            border-left: 5px solid #82b1ff !important;
+        }
         .manual-box { background-color: #262730 !important; border: 1px solid #444 !important; }
         .edit-warning { background-color: #3e2723 !important; color: #ffcc80 !important; border: 1px solid #ffab91 !important; }
-        .metric-card { background-color: #262730; border: 1px solid #444; }
     }
 
-    /* MODO CLARO */
+    /* MODO CLARO (LIGHT MODE) */
     @media (prefers-color-scheme: light) {
         .stApp { background-color: #ffffff !important; }
-        .pergunta-card { background-color: #fcfcfc !important; border-left: 5px solid #002060 !important; border: 1px solid #e0e0e0 !important; }
+        .pergunta-card { 
+            background-color: #fcfcfc !important; 
+            border-left: 5px solid #002060 !important; 
+            border: 1px solid #e0e0e0 !important; 
+        }
         .manual-box { background-color: #f0f2f6 !important; border: 1px solid #ddd !important; }
         .edit-warning { background-color: #fff3e0 !important; color: #e65100 !important; border: 1px solid #ffe0b2 !important; }
-        .metric-card { background-color: #f8f9fa; border: 1px solid #e9ecef; }
     }
 
     /* CARD DA PERGUNTA */
@@ -60,14 +71,6 @@ st.markdown("""
     .pergunta-texto {
         font-size: 1.1rem; font-weight: 700; margin-bottom: 15px; opacity: 0.95;
     }
-
-    /* CARD DE MÉTRICA (DASHBOARD) */
-    .metric-card {
-        padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 10px;
-    }
-    .metric-value { font-size: 2rem; font-weight: 800; color: #002060; }
-    .metric-label { font-size: 0.9rem; opacity: 0.7; font-weight: 600; text-transform: uppercase; }
-    @media (prefers-color-scheme: dark) { .metric-value { color: #82b1ff; } }
 
     /* BOTÕES */
     .stButton button {
@@ -115,6 +118,7 @@ SECOES = [
     "4. Profissionais", "5. Avançadas", "6. Reflexão"
 ]
 
+# Listas globais
 LISTA_PETIANOS = sorted([
     "", "Ana Carolina", "Ana Clara", "Ana Júlia", 
     "Eric Rullian", "Gildelandio Junior", 
@@ -354,14 +358,14 @@ if modo_operacao == "📝 Nova Transcrição":
 
     # --- SEÇÃO 5: AVANÇADAS ---
     elif secao_ativa == SECOES[4]:
-        st.markdown("### 5. DISCIPLINAS AVANÇADAS E COMPLEMENTARES")
+        st.markdown("### 5. DISCIPLINAS AVANÇADAS")
         with st.expander("GESTÃO, ECONOMIA E MEIO AMBIENTE", expanded=True):
             renderizar_pergunta("37. Eng. Econômica: Novos conceitos", "econ_37", key_suffix=k_suffix)
             renderizar_pergunta("38. Eng. Econômica: Visão global", "econ_38", key_suffix=k_suffix)
             renderizar_pergunta("39. Gestão: Comprometimento", "gest_39", key_suffix=k_suffix)
             renderizar_pergunta("40. Gestão: Resultados", "gest_40", key_suffix=k_suffix)
-            renderizar_pergunta("41. Eng. Ambiental: Inovação", "amb_41", key_suffix=k_suffix)
-            renderizar_pergunta("42. Eng. Ambiental: Novas situações", "amb_42", key_suffix=k_suffix)
+            renderizar_pergunta("41. Ambiental: Inovação", "amb_41", key_suffix=k_suffix)
+            renderizar_pergunta("42. Ambiental: Novas situações", "amb_42", key_suffix=k_suffix)
             renderizar_pergunta("43. Segurança: Incertezas", "seg_43", key_suffix=k_suffix)
             renderizar_pergunta("44. Segurança: Decisão", "seg_44", key_suffix=k_suffix)
         with st.expander("ATIVIDADES PRÁTICAS (LABORATÓRIO E ESTÁGIO)", expanded=True):
@@ -374,10 +378,10 @@ if modo_operacao == "📝 Nova Transcrição":
             renderizar_pergunta("50. Biotec: Ferramentas", "bio_50", key_suffix=k_suffix)
             renderizar_pergunta("51. Petróleo: Recuperação", "petro_51", key_suffix=k_suffix)
             renderizar_pergunta("52. Petróleo: Reatores", "petro_52", key_suffix=k_suffix)
-            renderizar_pergunta("53. Polímeros: Mecanismos cinéticos", "poli_53", key_suffix=k_suffix)
-            renderizar_pergunta("54. Polímeros: Conceber produtos", "poli_54", key_suffix=k_suffix)
-            renderizar_pergunta("55. Catálise: Mecanismos de transformação", "cat_55", key_suffix=k_suffix)
-            renderizar_pergunta("56. Catálise: Aplicar na produção", "cat_56", key_suffix=k_suffix)
+            renderizar_pergunta("53. Polímeros: Cinética", "poli_53", key_suffix=k_suffix)
+            renderizar_pergunta("54. Polímeros: Produtos", "poli_54", key_suffix=k_suffix)
+            renderizar_pergunta("55. Catálise: Mecanismos", "cat_55", key_suffix=k_suffix)
+            renderizar_pergunta("56. Catálise: Produção", "cat_56", key_suffix=k_suffix)
             renderizar_pergunta("57. Simulação: Dados", "sim_57", key_suffix=k_suffix)
             renderizar_pergunta("58. Simulação: Comunicação", "sim_58", key_suffix=k_suffix)
             renderizar_pergunta("59. Otimização: Soluções", "otim_59", key_suffix=k_suffix)
@@ -549,29 +553,18 @@ elif modo_operacao == "📊 Painel Gerencial":
         try:
             df = pd.read_csv(ARQUIVO_DB, dtype={'Matricula': str})
             
-            # FILTRO POR PETIANO
-            petianos_db = sorted(list(df['Petiano_Responsavel'].unique()))
-            filtro_pet = st.sidebar.selectbox("Filtrar por Responsável:", ["Todos"] + petianos_db)
-            
-            if filtro_pet != "Todos":
-                df = df[df['Petiano_Responsavel'] == filtro_pet]
-
-            # FILTRO POR SEMESTRE (NOVO)
-            sems_db = sorted(list(df['Semestre'].unique()))
-            filtro_sem = st.sidebar.selectbox("Filtrar por Semestre:", ["Todos"] + sems_db)
-            
-            if filtro_sem != "Todos":
-                df = df[df['Semestre'] == filtro_sem]
-
-            st.markdown("---")
             c1, c2, c3 = st.columns(3)
-            c1.metric("Formulários (Filtro)", len(df))
+            c1.metric("Formulários", len(df))
             
+            # Filtro Inteligente
             ignorar = ['Nome', 'Matricula', 'Semestre', 'Curriculo', 'Data_Registro', 'Petiano_Responsavel']
             cols_notas = [c for c in df.columns if c not in ignorar and not c.startswith("Obs") and not c.startswith("Auto") and not c.startswith("Contribuição") and not c.startswith("Exemplos") and not c.startswith("Competências") and not c.startswith("Plano") and not c.startswith("Comentários") and not c.startswith("Observações")]
             
+            # Conversão para numérico (Coerce transforma 'N/A' e textos em NaN)
             df_nums = df[cols_notas].apply(pd.to_numeric, errors='coerce')
+            
             if not df_nums.empty:
+                # Calcula média ignorando NaN
                 media = df_nums.mean().mean()
                 c2.metric("Média Geral (Exclui N/A)", f"{media:.2f}/5.0")
             
@@ -579,12 +572,33 @@ elif modo_operacao == "📊 Painel Gerencial":
                 last = pd.to_datetime(df['Data_Registro']).max()
                 c3.metric("Última Atividade", last.strftime("%d/%m %H:%M"))
             
-            st.markdown("#### Ranking de Competências (Média)")
+            # --- RANKING DE COMPETÊNCIAS (PET COLORS) ---
+            st.markdown("#### Ranking de Desempenho")
             if not df_nums.empty:
-                medias = df_nums.mean().sort_values(ascending=True)
-                fig = px.bar(medias, orientation='h', x=medias.values, y=medias.index, text_auto='.2f', 
-                             color=medias.values, color_continuous_scale='RdYlGn', labels={'x': 'Média', 'index': ''})
-                fig.update_layout(height=800, margin=dict(l=0, r=0, t=0, b=0))
+                medias_por_comp = df_nums.mean().sort_values(ascending=True)
+                
+                # Gráfico com IDV PET (Vermelho -> Dourado -> Azul)
+                fig = px.bar(
+                    medias_por_comp, 
+                    orientation='h', 
+                    x=medias_por_comp.values, 
+                    y=medias_por_comp.index,
+                    text_auto='.2f',
+                    labels={'index': 'Competência', 'x': 'Média'},
+                    color=medias_por_comp.values,
+                    color_continuous_scale=[
+                        (0.0, '#d32f2f'), # Vermelho (Nota 0)
+                        (0.5, '#dba800'), # Dourado (Nota 2.5)
+                        (1.0, '#002060')  # Azul PET (Nota 5)
+                    ]
+                )
+                # Ajuste para fundo transparente
+                fig.update_layout(
+                    height=1000, 
+                    paper_bgcolor='rgba(0,0,0,0)', 
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    font=dict(color="gray") # Texto neutro para dark/light
+                )
                 st.plotly_chart(fig, use_container_width=True)
 
             st.markdown("#### Detalhamento")
