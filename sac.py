@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import plotly.express as px
 import os
 import json
 from datetime import datetime, timedelta, timezone
@@ -10,7 +11,7 @@ from datetime import datetime, timedelta, timezone
 st.set_page_config(
     page_title="S.A.C. - PET Engenharia Química", 
     layout="wide", 
-    page_icon="📝", 
+    page_icon="📊", 
     initial_sidebar_state="expanded"
 )
 
@@ -18,7 +19,7 @@ ARQUIVO_DB = "respostas_sac_deq.csv"
 ARQUIVO_BACKUP = "_backup_autosave.json"
 
 # ==============================================================================
-# 2. ESTILO VISUAL (CSS RESPONSIVO E INSTITUCIONAL)
+# 2. ESTILO VISUAL (INSTITUCIONAL & RESPONSIVO)
 # ==============================================================================
 st.markdown("""
     <style>
@@ -40,6 +41,7 @@ st.markdown("""
         .pergunta-card { background-color: #1e1e1e !important; border-left: 5px solid #82b1ff !important; border: 1px solid #333 !important; }
         .manual-box { background-color: #262730 !important; border: 1px solid #444 !important; }
         .edit-warning { background-color: #3e2723 !important; color: #ffcc80 !important; border: 1px solid #ffab91 !important; }
+        .metric-card { background-color: #262730; border: 1px solid #444; }
     }
 
     /* MODO CLARO */
@@ -48,6 +50,7 @@ st.markdown("""
         .pergunta-card { background-color: #fcfcfc !important; border-left: 5px solid #002060 !important; border: 1px solid #e0e0e0 !important; }
         .manual-box { background-color: #f0f2f6 !important; border: 1px solid #ddd !important; }
         .edit-warning { background-color: #fff3e0 !important; color: #e65100 !important; border: 1px solid #ffe0b2 !important; }
+        .metric-card { background-color: #f8f9fa; border: 1px solid #e9ecef; }
     }
 
     /* CARD DA PERGUNTA */
@@ -57,6 +60,14 @@ st.markdown("""
     .pergunta-texto {
         font-size: 1.1rem; font-weight: 700; margin-bottom: 15px; opacity: 0.95;
     }
+
+    /* CARD DE MÉTRICA (DASHBOARD) */
+    .metric-card {
+        padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 10px;
+    }
+    .metric-value { font-size: 2rem; font-weight: 800; color: #002060; }
+    .metric-label { font-size: 0.9rem; opacity: 0.7; font-weight: 600; text-transform: uppercase; }
+    @media (prefers-color-scheme: dark) { .metric-value { color: #82b1ff; } }
 
     /* BOTÕES */
     .stButton button {
@@ -104,7 +115,6 @@ SECOES = [
     "4. Profissionais", "5. Avançadas", "6. Reflexão"
 ]
 
-# Listas globais para garantir consistência na edição
 LISTA_PETIANOS = sorted([
     "", "Ana Carolina", "Ana Clara", "Ana Júlia", 
     "Eric Rullian", "Gildelandio Junior", 
@@ -160,7 +170,6 @@ def obter_hora_ceara():
 def renderizar_pergunta(texto_pergunta, id_unica, valor_padrao="N/A", obs_padrao="", key_suffix=""):
     """
     Renderiza o bloco de pergunta.
-    Aceita valores padrão para o modo de edição.
     """
     k = key_suffix if key_suffix else f"_{st.session_state.form_key}"
     
@@ -216,35 +225,29 @@ with st.sidebar:
                 st.rerun()
 
         with tab_manual:
-            st.markdown("### 📘 MANUAL DE TRANSCRIÇÃO")
+            st.markdown("### 📘 PROCEDIMENTOS PADRÃO")
             
-            st.markdown('<div class="manual-box">', unsafe_allow_html=True)
-            st.markdown("**1. CONDUTA GERAL**")
-            st.caption("A fidelidade aos dados é a prioridade absoluta.")
-            st.markdown("""
-            * **Não altere erros:** Transcreva exatamente o que vê (ipsis litteris).
-            * **Letra Ilegível:** Digite `[ILEGÍVEL]`.
-            """)
-            st.markdown('</div>', unsafe_allow_html=True)
-            
-            st.markdown('<div class="manual-box">', unsafe_allow_html=True)
-            st.markdown("**2. ESCALA NUMÉRICA E 'N/A'**")
-            st.markdown("""
-            * **N/A (Não se Aplica):** Use OBRIGATORIAMENTE quando:
-                * O campo está em branco.
-                * Há rasura que impede identificar a nota.
-                * O aluno marcou duas opções (ex: 3 e 4).
-            * **Nota:** N/A não conta na média.
-            """)
-            st.markdown('</div>', unsafe_allow_html=True)
-            
-            st.markdown('<div class="manual-box">', unsafe_allow_html=True)
-            st.markdown("**3. SEÇÃO FINAL (OBRIGATÓRIA)**")
-            st.error("""
-            O sistema **BLOQUEIA** o salvamento se a Reflexão Final estiver vazia.
-            Se o aluno não escreveu, digite **EM BRANCO** ou **NÃO RESPONDEU**.
-            """)
-            st.markdown('</div>', unsafe_allow_html=True)
+            with st.expander("1. Preparação e Conduta", expanded=True):
+                st.caption("A fidelidade aos dados é a prioridade absoluta.")
+                st.markdown("""
+                * **Não altere erros:** Transcreva exatamente o que vê (ipsis litteris).
+                * **Letra Ilegível:** Digite `[ILEGÍVEL]`.
+                """)
+
+            with st.expander("2. Escala Numérica e 'N/A'"):
+                st.markdown("""
+                * **N/A (Não se Aplica):** Use OBRIGATORIAMENTE quando:
+                    * O campo está em branco.
+                    * Há rasura que impede identificar a nota.
+                    * O aluno marcou duas opções (ex: 3 e 4).
+                * **Nota:** N/A não conta na média.
+                """)
+
+            with st.expander("3. Seção Final (Obrigatória)"):
+                st.error("""
+                O sistema **BLOQUEIA** o salvamento se a Reflexão Final estiver vazia.
+                Se o aluno não escreveu, digite **EM BRANCO** ou **NÃO RESPONDEU**.
+                """)
 
 # ==============================================================================
 # LÓGICA 1: WIZARD DE TRANSCRIÇÃO (NOVA)
@@ -263,8 +266,8 @@ if modo_operacao == "📝 Nova Transcrição":
         renderizar_pergunta("3. Conceber, projetar e analisar sistemas, produtos e processos", "q3", key_suffix=k_suffix)
         renderizar_pergunta("4. Formular, conceber e avaliar soluções para problemas de engenharia", "q4", key_suffix=k_suffix)
         renderizar_pergunta("5. Analisar e compreender fenômenos físicos e químicos através de modelos", "q5", key_suffix=k_suffix)
-        renderizar_pergunta("6. Comunicar-se nas formas escrita, oral e gráfica", "q6", key_suffix=k_suffix)
-        renderizar_pergunta("7. Trabalhar e liderar equipes profissionais e multidisciplinares", "q7", key_suffix=k_suffix)
+        renderizar_pergunta("6. Comunicação técnica", "q6", key_suffix=k_suffix)
+        renderizar_pergunta("7. Trabalhar e liderar equipes profissionais", "q7", key_suffix=k_suffix)
         renderizar_pergunta("8. Aplicar ética e legislação no exercício profissional", "q8", key_suffix=k_suffix)
         
         st.markdown("---")
@@ -302,16 +305,16 @@ if modo_operacao == "📝 Nova Transcrição":
         st.markdown("### 3. DISCIPLINAS BÁSICAS")
         with st.expander("CÁLCULO DIFERENCIAL E INTEGRAL", expanded=True):
             renderizar_pergunta("21. Analisar grandes volumes de dados", "calc_21", key_suffix=k_suffix)
-            renderizar_pergunta("52. Formação Básica (cálculo, física, química, estatística)", "calc_52", key_suffix=k_suffix)
+            renderizar_pergunta("52. Formação Básica", "calc_52", key_suffix=k_suffix)
         with st.expander("FÍSICA GERAL", expanded=True):
             renderizar_pergunta("22. Analisar criticamente a operação e manutenção de sistemas", "fis_22", key_suffix=k_suffix)
-            renderizar_pergunta("53. Ciência da Engenharia (mecânica, resistência)", "fis_53", key_suffix=k_suffix)
+            renderizar_pergunta("53. Ciência da Engenharia", "fis_53", key_suffix=k_suffix)
         with st.expander("QUÍMICA GERAL E ANALÍTICA", expanded=True):
             renderizar_pergunta("23. Aplicar conhecimentos de transformação a processos", "qui_23", key_suffix=k_suffix)
             renderizar_pergunta("24. Conceber e desenvolver produtos e processos", "qui_24", key_suffix=k_suffix)
         with st.expander("TERMODINÂMICA", expanded=True):
             renderizar_pergunta("25. Projetar sistemas de suprimento energético", "termo_25", key_suffix=k_suffix)
-            renderizar_pergunta("54. Ciência da Eng. Química (termodinâmica)", "termo_54", key_suffix=k_suffix)
+            renderizar_pergunta("54. Ciência da Eng. Química", "termo_54", key_suffix=k_suffix)
         with st.expander("FENÔMENOS DE TRANSPORTE E MECÂNICA DOS FLUIDOS", expanded=True):
             renderizar_pergunta("26. Aplicar conhecimentos de fenômenos de transporte", "ft_26", key_suffix=k_suffix)
             renderizar_pergunta("27. Comunicar-se tecnicamente e usar recursos gráficos", "ft_27", key_suffix=k_suffix)
@@ -329,18 +332,18 @@ if modo_operacao == "📝 Nova Transcrição":
     elif secao_ativa == SECOES[3]:
         st.markdown("### 4. DISCIPLINAS PROFISSIONALIZANTES")
         with st.expander("OPERAÇÕES UNITÁRIAS (I e II)", expanded=True):
-            renderizar_pergunta("30. Inspecionar e coordenar manutenção (Sep. Mecânicas)", "op1_30", key_suffix=k_suffix)
-            renderizar_pergunta("55. Tecnologia Industrial (Op. Unit, Controle)", "op1_55", key_suffix=k_suffix)
-            renderizar_pergunta("31. Elaborar estudos de impactos ambientais", "op2_31", key_suffix=k_suffix)
-            renderizar_pergunta("32. Projetar processos de tratamento ambiental", "op2_32", key_suffix=k_suffix)
+            renderizar_pergunta("30. Inspecionar manutenção", "op1_30", key_suffix=k_suffix)
+            renderizar_pergunta("55. Tecnologia Industrial", "op1_55", key_suffix=k_suffix)
+            renderizar_pergunta("31. Elaborar estudos ambientais", "op2_31", key_suffix=k_suffix)
+            renderizar_pergunta("32. Projetar tratamento ambiental", "op2_32", key_suffix=k_suffix)
         with st.expander("REATORES QUÍMICOS", expanded=True):
-            renderizar_pergunta("33. Gerir recursos estratégicos na produção", "reat_33", key_suffix=k_suffix)
-            renderizar_pergunta("34. Aplicar modelos de produção e controle de qualidade", "reat_34", key_suffix=k_suffix)
+            renderizar_pergunta("33. Gerir recursos", "reat_33", key_suffix=k_suffix)
+            renderizar_pergunta("34. Controle de qualidade", "reat_34", key_suffix=k_suffix)
         with st.expander("CONTROLE DE PROCESSOS E PROJETOS", expanded=True):
-            renderizar_pergunta("35. Controle e supervisão de instalações", "ctrl_35", key_suffix=k_suffix)
-            renderizar_pergunta("36. Gestão de empreendimentos industriais", "ctrl_36", key_suffix=k_suffix)
-            renderizar_pergunta("56. Projetos Industriais e Gestão", "proj_56", key_suffix=k_suffix)
-            renderizar_pergunta("57. Ética, Meio Ambiente e Humanidades", "proj_57", key_suffix=k_suffix)
+            renderizar_pergunta("35. Controle: Supervisão", "ctrl_35", key_suffix=k_suffix)
+            renderizar_pergunta("36. Gestão de empreendimentos", "ctrl_36", key_suffix=k_suffix)
+            renderizar_pergunta("56. Gestão Industrial", "proj_56", key_suffix=k_suffix)
+            renderizar_pergunta("57. Ética e Humanidades", "proj_57", key_suffix=k_suffix)
         
         st.markdown("---")
         col1, col2 = st.columns([0.8, 0.2])
@@ -353,40 +356,40 @@ if modo_operacao == "📝 Nova Transcrição":
     elif secao_ativa == SECOES[4]:
         st.markdown("### 5. DISCIPLINAS AVANÇADAS E COMPLEMENTARES")
         with st.expander("GESTÃO, ECONOMIA E MEIO AMBIENTE", expanded=True):
-            renderizar_pergunta("37. Eng. Econômica: Aprender novos conceitos", "econ_37", key_suffix=k_suffix)
+            renderizar_pergunta("37. Eng. Econômica: Novos conceitos", "econ_37", key_suffix=k_suffix)
             renderizar_pergunta("38. Eng. Econômica: Visão global", "econ_38", key_suffix=k_suffix)
-            renderizar_pergunta("39. Gestão da Produção: Comprometimento organizacional", "gest_39", key_suffix=k_suffix)
-            renderizar_pergunta("40. Gestão da Produção: Gerar resultados efetivos", "gest_40", key_suffix=k_suffix)
+            renderizar_pergunta("39. Gestão: Comprometimento", "gest_39", key_suffix=k_suffix)
+            renderizar_pergunta("40. Gestão: Resultados", "gest_40", key_suffix=k_suffix)
             renderizar_pergunta("41. Eng. Ambiental: Inovação", "amb_41", key_suffix=k_suffix)
-            renderizar_pergunta("42. Eng. Ambiental: Lidar com situações novas", "amb_42", key_suffix=k_suffix)
-            renderizar_pergunta("43. Segurança de Processos: Lidar com incertezas", "seg_43", key_suffix=k_suffix)
-            renderizar_pergunta("44. Segurança de Processos: Iniciativa e decisão", "seg_44", key_suffix=k_suffix)
+            renderizar_pergunta("42. Eng. Ambiental: Novas situações", "amb_42", key_suffix=k_suffix)
+            renderizar_pergunta("43. Segurança: Incertezas", "seg_43", key_suffix=k_suffix)
+            renderizar_pergunta("44. Segurança: Decisão", "seg_44", key_suffix=k_suffix)
         with st.expander("ATIVIDADES PRÁTICAS (LABORATÓRIO E ESTÁGIO)", expanded=True):
             renderizar_pergunta("45. Laboratório: Criatividade", "lab_45", key_suffix=k_suffix)
-            renderizar_pergunta("46. Laboratório: Relacionamento interpessoal", "lab_46", key_suffix=k_suffix)
-            renderizar_pergunta("47. Estágio Supervisionado: Autocontrole emocional", "est_47", key_suffix=k_suffix)
-            renderizar_pergunta("48. Estágio Supervisionado: Capacidade empreendedora", "est_48", key_suffix=k_suffix)
+            renderizar_pergunta("46. Laboratório: Relacionamento", "lab_46", key_suffix=k_suffix)
+            renderizar_pergunta("47. Estágio: Autocontrole", "est_47", key_suffix=k_suffix)
+            renderizar_pergunta("48. Estágio: Capacidade empreendedora", "est_48", key_suffix=k_suffix)
         with st.expander("DISCIPLINAS OPTATIVAS E INTEGRADORAS", expanded=True):
-            renderizar_pergunta("49. Biotecnologia: Analisar grandes volumes de dados", "bio_49", key_suffix=k_suffix)
-            renderizar_pergunta("50. Biotecnologia: Novas ferramentas", "bio_50", key_suffix=k_suffix)
-            renderizar_pergunta("51. Petróleo e Gás: Projetar sistemas de recuperação", "petro_51", key_suffix=k_suffix)
-            renderizar_pergunta("52. Petróleo e Gás: Projetar reatores", "petro_52", key_suffix=k_suffix)
+            renderizar_pergunta("49. Biotec: Dados", "bio_49", key_suffix=k_suffix)
+            renderizar_pergunta("50. Biotec: Ferramentas", "bio_50", key_suffix=k_suffix)
+            renderizar_pergunta("51. Petróleo: Recuperação", "petro_51", key_suffix=k_suffix)
+            renderizar_pergunta("52. Petróleo: Reatores", "petro_52", key_suffix=k_suffix)
             renderizar_pergunta("53. Polímeros: Mecanismos cinéticos", "poli_53", key_suffix=k_suffix)
             renderizar_pergunta("54. Polímeros: Conceber produtos", "poli_54", key_suffix=k_suffix)
             renderizar_pergunta("55. Catálise: Mecanismos de transformação", "cat_55", key_suffix=k_suffix)
-            renderizar_pergunta("56. Catálise: Aplicar conhecimentos a produção", "cat_56", key_suffix=k_suffix)
-            renderizar_pergunta("57. Simulação de Processos: Analisar grandes volumes de dados", "sim_57", key_suffix=k_suffix)
-            renderizar_pergunta("58. Simulação de Processos: Comunicar-se tecnicamente", "sim_58", key_suffix=k_suffix)
-            renderizar_pergunta("59. Otimização de Processos: Soluções para problemas", "otim_59", key_suffix=k_suffix)
-            renderizar_pergunta("60. Otimização de Processos: Modelos de produção", "otim_60", key_suffix=k_suffix)
-            renderizar_pergunta("61. TCC: Comunicação escrita/oral", "tcc_61", key_suffix=k_suffix)
-            renderizar_pergunta("62. TCC: Liderar equipes", "tcc_62", key_suffix=k_suffix)
+            renderizar_pergunta("56. Catálise: Aplicar na produção", "cat_56", key_suffix=k_suffix)
+            renderizar_pergunta("57. Simulação: Dados", "sim_57", key_suffix=k_suffix)
+            renderizar_pergunta("58. Simulação: Comunicação", "sim_58", key_suffix=k_suffix)
+            renderizar_pergunta("59. Otimização: Soluções", "otim_59", key_suffix=k_suffix)
+            renderizar_pergunta("60. Otimização: Modelos", "otim_60", key_suffix=k_suffix)
+            renderizar_pergunta("61. TCC: Comunicação", "tcc_61", key_suffix=k_suffix)
+            renderizar_pergunta("62. TCC: Liderança", "tcc_62", key_suffix=k_suffix)
         
         st.markdown("---")
         col1, col2 = st.columns([0.8, 0.2])
         with col2: 
             st.markdown('<div class="botao-avancar">', unsafe_allow_html=True)
-            st.button("SALVAR RASCUNHO E AVANÇAR ➡️", on_click=navegar_proxima, key="btn_5")
+            st.button("SALVAR RASCUNHO E AVANÇAR ➡️", on_click=navegar_proxima, key="btn_nav5")
             st.markdown('</div>', unsafe_allow_html=True)
 
     # --- SEÇÃO 6: REFLEXÃO FINAL ---
@@ -400,7 +403,7 @@ if modo_operacao == "📝 Nova Transcrição":
         
         txt_fortes = st.text_area("Pontos Fortes (Obrigatório)", key=f"obs_fortes{k_suffix}")
         txt_fracos = st.text_area("Pontos a Desenvolver (Obrigatório)", key=f"obs_fracos{k_suffix}")
-        txt_prat = st.text_area("Contribuição das atividades", key=f"obs_prat{k_suffix}")
+        txt_prat = st.text_area("Contribuição Prática", key=f"obs_prat{k_suffix}")
         txt_ex = st.text_area("Exemplos de Aplicação", key=f"obs_ex{k_suffix}")
         txt_fut1 = st.text_area("Competências Futuras", key=f"obs_fut1{k_suffix}")
         txt_fut2 = st.text_area("Plano de Desenvolvimento", key=f"obs_fut2{k_suffix}")
@@ -546,8 +549,23 @@ elif modo_operacao == "📊 Painel Gerencial":
         try:
             df = pd.read_csv(ARQUIVO_DB, dtype={'Matricula': str})
             
+            # FILTRO POR PETIANO
+            petianos_db = sorted(list(df['Petiano_Responsavel'].unique()))
+            filtro_pet = st.sidebar.selectbox("Filtrar por Responsável:", ["Todos"] + petianos_db)
+            
+            if filtro_pet != "Todos":
+                df = df[df['Petiano_Responsavel'] == filtro_pet]
+
+            # FILTRO POR SEMESTRE (NOVO)
+            sems_db = sorted(list(df['Semestre'].unique()))
+            filtro_sem = st.sidebar.selectbox("Filtrar por Semestre:", ["Todos"] + sems_db)
+            
+            if filtro_sem != "Todos":
+                df = df[df['Semestre'] == filtro_sem]
+
+            st.markdown("---")
             c1, c2, c3 = st.columns(3)
-            c1.metric("Formulários", len(df))
+            c1.metric("Formulários (Filtro)", len(df))
             
             ignorar = ['Nome', 'Matricula', 'Semestre', 'Curriculo', 'Data_Registro', 'Petiano_Responsavel']
             cols_notas = [c for c in df.columns if c not in ignorar and not c.startswith("Obs") and not c.startswith("Auto") and not c.startswith("Contribuição") and not c.startswith("Exemplos") and not c.startswith("Competências") and not c.startswith("Plano") and not c.startswith("Comentários") and not c.startswith("Observações")]
@@ -561,7 +579,14 @@ elif modo_operacao == "📊 Painel Gerencial":
                 last = pd.to_datetime(df['Data_Registro']).max()
                 c3.metric("Última Atividade", last.strftime("%d/%m %H:%M"))
             
-            st.markdown("---")
+            st.markdown("#### Ranking de Competências (Média)")
+            if not df_nums.empty:
+                medias = df_nums.mean().sort_values(ascending=True)
+                fig = px.bar(medias, orientation='h', x=medias.values, y=medias.index, text_auto='.2f', 
+                             color=medias.values, color_continuous_scale='RdYlGn', labels={'x': 'Média', 'index': ''})
+                fig.update_layout(height=800, margin=dict(l=0, r=0, t=0, b=0))
+                st.plotly_chart(fig, use_container_width=True)
+
             st.markdown("#### Detalhamento")
             st.dataframe(df, use_container_width=True, height=500)
             
