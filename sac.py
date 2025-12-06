@@ -11,7 +11,7 @@ from datetime import datetime, timedelta, timezone
 st.set_page_config(
     page_title="S.A.C. - PET Engenharia Química", 
     layout="wide", 
-    page_icon="📝", 
+    page_icon="📊", 
     initial_sidebar_state="expanded"
 )
 
@@ -24,15 +24,10 @@ ARQUIVO_BACKUP = "_backup_autosave.json"
 st.markdown("""
     <style>
     /* VARIÁVEIS GERAIS */
-    :root { 
-        --primary-color: #002060; /* Azul Institucional PET/UFC */
-        --secondary-color: #dba800; /* Dourado/Amarelo UFC */
-    }
-
-    /* TIPOGRAFIA E BASE */
+    :root { --primary-color: #002060; }
     .stApp { font-family: 'Segoe UI', 'Roboto', sans-serif; }
     
-    /* TÍTULOS ADAPTÁVEIS */
+    /* TÍTULOS */
     h1, h2, h3, h4 {
         color: var(--primary-color) !important;
         font-weight: 800 !important;
@@ -40,26 +35,18 @@ st.markdown("""
         letter-spacing: 0.05em;
     }
     
-    /* MODO ESCURO (DARK MODE) */
+    /* MODO ESCURO */
     @media (prefers-color-scheme: dark) {
-        h1, h2, h3, h4 { color: #82b1ff !important; } /* Azul claro para leitura no escuro */
-        .pergunta-card { 
-            background-color: #1e1e1e !important; 
-            border: 1px solid #333 !important; 
-            border-left: 5px solid #82b1ff !important;
-        }
+        h1, h2, h3, h4 { color: #82b1ff !important; }
+        .pergunta-card { background-color: #1e1e1e !important; border-left: 5px solid #82b1ff !important; border: 1px solid #333 !important; }
         .manual-box { background-color: #262730 !important; border: 1px solid #444 !important; }
         .edit-warning { background-color: #3e2723 !important; color: #ffcc80 !important; border: 1px solid #ffab91 !important; }
     }
 
-    /* MODO CLARO (LIGHT MODE) */
+    /* MODO CLARO */
     @media (prefers-color-scheme: light) {
         .stApp { background-color: #ffffff !important; }
-        .pergunta-card { 
-            background-color: #fcfcfc !important; 
-            border-left: 5px solid #002060 !important; 
-            border: 1px solid #e0e0e0 !important; 
-        }
+        .pergunta-card { background-color: #fcfcfc !important; border-left: 5px solid #002060 !important; border: 1px solid #e0e0e0 !important; }
         .manual-box { background-color: #f0f2f6 !important; border: 1px solid #ddd !important; }
         .edit-warning { background-color: #fff3e0 !important; color: #e65100 !important; border: 1px solid #ffe0b2 !important; }
     }
@@ -111,14 +98,13 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==============================================================================
-# 4. FUNÇÕES DE SUPORTE E LISTAS GLOBAIS
+# 4. FUNÇÕES DE SUPORTE
 # ==============================================================================
 SECOES = [
     "1. Gerais", "2. Específicas", "3. Básicas", 
     "4. Profissionais", "5. Avançadas", "6. Reflexão"
 ]
 
-# Listas globais
 LISTA_PETIANOS = sorted([
     "", "Ana Carolina", "Ana Clara", "Ana Júlia", 
     "Eric Rullian", "Gildelandio Junior", 
@@ -172,9 +158,6 @@ def obter_hora_ceara():
     return datetime.now(fuso).strftime("%Y-%m-%d %H:%M:%S")
 
 def renderizar_pergunta(texto_pergunta, id_unica, valor_padrao="N/A", obs_padrao="", key_suffix=""):
-    """
-    Renderiza o bloco de pergunta.
-    """
     k = key_suffix if key_suffix else f"_{st.session_state.form_key}"
     
     with st.container():
@@ -198,17 +181,13 @@ def renderizar_pergunta(texto_pergunta, id_unica, valor_padrao="N/A", obs_padrao
     return val, obs
 
 # ==============================================================================
-# 5. BARRA LATERAL (MENU PRINCIPAL)
+# 5. BARRA LATERAL
 # ==============================================================================
 respostas = {}
 
 with st.sidebar:
     st.markdown("### ⚙️ MODO DE OPERAÇÃO")
-    modo_operacao = st.radio(
-        "Selecione:",
-        ["📝 Nova Transcrição", "✏️ Editar Registro", "📊 Painel Gerencial"],
-        label_visibility="collapsed"
-    )
+    modo_operacao = st.radio("Ação:", ["📝 Nova Transcrição", "✏️ Editar Registro", "📊 Painel Gerencial"], label_visibility="collapsed")
     st.markdown("---")
 
     if modo_operacao == "📝 Nova Transcrição":
@@ -243,7 +222,7 @@ with st.sidebar:
                 * **N/A (Não se Aplica):** Use OBRIGATORIAMENTE quando:
                     * O campo está em branco.
                     * Há rasura que impede identificar a nota.
-                    * O aluno marcou duas opções (ex: 3 e 4).
+                    * O aluno marcou duas opções.
                 * **Nota:** N/A não conta na média.
                 """)
 
@@ -362,16 +341,16 @@ if modo_operacao == "📝 Nova Transcrição":
         with st.expander("GESTÃO, ECONOMIA E MEIO AMBIENTE", expanded=True):
             renderizar_pergunta("37. Eng. Econômica: Novos conceitos", "econ_37", key_suffix=k_suffix)
             renderizar_pergunta("38. Eng. Econômica: Visão global", "econ_38", key_suffix=k_suffix)
-            renderizar_pergunta("39. Gestão: Comprometimento", "gest_39", key_suffix=k_suffix)
-            renderizar_pergunta("40. Gestão: Resultados", "gest_40", key_suffix=k_suffix)
-            renderizar_pergunta("41. Ambiental: Inovação", "amb_41", key_suffix=k_suffix)
-            renderizar_pergunta("42. Ambiental: Novas situações", "amb_42", key_suffix=k_suffix)
+            renderizar_pergunta("39. Gestão Produção: Comprometimento", "gest_39", key_suffix=k_suffix)
+            renderizar_pergunta("40. Gestão Produção: Resultados", "gest_40", key_suffix=k_suffix)
+            renderizar_pergunta("41. Eng. Ambiental: Inovação", "amb_41", key_suffix=k_suffix)
+            renderizar_pergunta("42. Eng. Ambiental: Novas situações", "amb_42", key_suffix=k_suffix)
             renderizar_pergunta("43. Segurança: Incertezas", "seg_43", key_suffix=k_suffix)
             renderizar_pergunta("44. Segurança: Decisão", "seg_44", key_suffix=k_suffix)
         with st.expander("ATIVIDADES PRÁTICAS (LABORATÓRIO E ESTÁGIO)", expanded=True):
             renderizar_pergunta("45. Laboratório: Criatividade", "lab_45", key_suffix=k_suffix)
             renderizar_pergunta("46. Laboratório: Relacionamento", "lab_46", key_suffix=k_suffix)
-            renderizar_pergunta("47. Estágio: Autocontrole", "est_47", key_suffix=k_suffix)
+            renderizar_pergunta("47. Estágio: Autocontrole emocional", "est_47", key_suffix=k_suffix)
             renderizar_pergunta("48. Estágio: Capacidade empreendedora", "est_48", key_suffix=k_suffix)
         with st.expander("DISCIPLINAS OPTATIVAS E INTEGRADORAS", expanded=True):
             renderizar_pergunta("49. Biotec: Dados", "bio_49", key_suffix=k_suffix)
@@ -380,8 +359,8 @@ if modo_operacao == "📝 Nova Transcrição":
             renderizar_pergunta("52. Petróleo: Reatores", "petro_52", key_suffix=k_suffix)
             renderizar_pergunta("53. Polímeros: Cinética", "poli_53", key_suffix=k_suffix)
             renderizar_pergunta("54. Polímeros: Produtos", "poli_54", key_suffix=k_suffix)
-            renderizar_pergunta("55. Catálise: Mecanismos", "cat_55", key_suffix=k_suffix)
-            renderizar_pergunta("56. Catálise: Produção", "cat_56", key_suffix=k_suffix)
+            renderizar_pergunta("55. Catálise: Mecanismos de transformação", "cat_55", key_suffix=k_suffix)
+            renderizar_pergunta("56. Catálise: Aplicar na produção", "cat_56", key_suffix=k_suffix)
             renderizar_pergunta("57. Simulação: Dados", "sim_57", key_suffix=k_suffix)
             renderizar_pergunta("58. Simulação: Comunicação", "sim_58", key_suffix=k_suffix)
             renderizar_pergunta("59. Otimização: Soluções", "otim_59", key_suffix=k_suffix)
@@ -474,7 +453,7 @@ if modo_operacao == "📝 Nova Transcrição":
     salvar_estado()
 
 # ==============================================================================
-# LÓGICA 2: MODO DE EDIÇÃO (CORRIGIDO E COMPLETO)
+# LÓGICA 2: MODO DE EDIÇÃO
 # ==============================================================================
 elif modo_operacao == "✏️ Editar Registro":
     st.markdown("### ✏️ MODO DE EDIÇÃO")
@@ -496,11 +475,9 @@ elif modo_operacao == "✏️ Editar Registro":
                     st.subheader("1. Dados Cadastrais")
                     c1, c2 = st.columns(2)
                     
-                    # Campos de Texto (Simples)
                     new_nome = c1.text_input("Nome", value=dados.get("Nome", ""))
                     new_mat = c2.text_input("Matrícula", value=dados.get("Matricula", ""))
                     
-                    # Campos de Seleção (Lógica de Index Seguro)
                     val_sem = dados.get("Semestre", "")
                     idx_sem = LISTA_SEMESTRES.index(val_sem) if val_sem in LISTA_SEMESTRES else 0
                     new_sem = c1.selectbox("Semestre", LISTA_SEMESTRES, index=idx_sem)
@@ -517,7 +494,7 @@ elif modo_operacao == "✏️ Editar Registro":
                     st.subheader("2. Correção de Notas Específicas")
                     st.info("Selecione a competência/disciplina abaixo para corrigir a nota lançada.")
                     
-                    # Filtra colunas de nota (ignora identificação e obs)
+                    # Filtra colunas de nota
                     cols_notas = [c for c in df.columns if c not in ['Nome', 'Matricula', 'Data_Registro', 'Semestre', 'Curriculo', 'Petiano_Responsavel'] and not c.startswith("Obs") and not c.startswith("Auto") and not c.startswith("Contribuição") and not c.startswith("Exemplos") and not c.startswith("Competências") and not c.startswith("Plano") and not c.startswith("Comentários") and not c.startswith("Observações")]
                     
                     col_edit = st.selectbox("Escolha o campo para editar:", cols_notas)
@@ -529,7 +506,6 @@ elif modo_operacao == "✏️ Editar Registro":
                     
                     st.markdown("---")
                     if st.form_submit_button("💾 SALVAR ALTERAÇÕES"):
-                        # Atualiza DF
                         df.at[idx, "Nome"] = new_nome
                         df.at[idx, "Matricula"] = new_mat
                         df.at[idx, "Semestre"] = new_sem
@@ -556,15 +532,11 @@ elif modo_operacao == "📊 Painel Gerencial":
             c1, c2, c3 = st.columns(3)
             c1.metric("Formulários", len(df))
             
-            # Filtro Inteligente
             ignorar = ['Nome', 'Matricula', 'Semestre', 'Curriculo', 'Data_Registro', 'Petiano_Responsavel']
             cols_notas = [c for c in df.columns if c not in ignorar and not c.startswith("Obs") and not c.startswith("Auto") and not c.startswith("Contribuição") and not c.startswith("Exemplos") and not c.startswith("Competências") and not c.startswith("Plano") and not c.startswith("Comentários") and not c.startswith("Observações")]
             
-            # Conversão para numérico (Coerce transforma 'N/A' e textos em NaN)
             df_nums = df[cols_notas].apply(pd.to_numeric, errors='coerce')
-            
             if not df_nums.empty:
-                # Calcula média ignorando NaN
                 media = df_nums.mean().mean()
                 c2.metric("Média Geral (Exclui N/A)", f"{media:.2f}/5.0")
             
@@ -572,36 +544,52 @@ elif modo_operacao == "📊 Painel Gerencial":
                 last = pd.to_datetime(df['Data_Registro']).max()
                 c3.metric("Última Atividade", last.strftime("%d/%m %H:%M"))
             
-            # --- RANKING DE COMPETÊNCIAS (PET COLORS) ---
-            st.markdown("#### Ranking de Desempenho")
-            if not df_nums.empty:
-                medias_por_comp = df_nums.mean().sort_values(ascending=True)
-                
-                # Gráfico com IDV PET (Vermelho -> Dourado -> Azul)
-                fig = px.bar(
-                    medias_por_comp, 
-                    orientation='h', 
-                    x=medias_por_comp.values, 
-                    y=medias_por_comp.index,
-                    text_auto='.2f',
-                    labels={'index': 'Competência', 'x': 'Média'},
-                    color=medias_por_comp.values,
-                    color_continuous_scale=[
-                        (0.0, '#d32f2f'), # Vermelho (Nota 0)
-                        (0.5, '#dba800'), # Dourado (Nota 2.5)
-                        (1.0, '#002060')  # Azul PET (Nota 5)
-                    ]
-                )
-                # Ajuste para fundo transparente
-                fig.update_layout(
-                    height=1000, 
-                    paper_bgcolor='rgba(0,0,0,0)', 
-                    plot_bgcolor='rgba(0,0,0,0)',
-                    font=dict(color="gray") # Texto neutro para dark/light
-                )
-                st.plotly_chart(fig, use_container_width=True)
+            st.markdown("---")
+            
+            # --- SEÇÃO DE GRÁFICOS POR BLOCOS (DASHBOARD SEGMENTADO) ---
+            st.markdown("#### 📈 Análise por Blocos de Competência")
+            
+            # Dicionário de Prefixos/Palavras-chave para agrupar as colunas
+            # As chaves aqui devem bater com os textos que usamos no renderizar_pergunta
+            grupos_analise = {
+                "Competências Gerais": ["1. ", "2. ", "3. ", "4. ", "5. ", "6. ", "7. ", "8. "],
+                "Competências Específicas": ["9. ", "10. ", "11. ", "12. ", "13. ", "14. ", "15. ", "16. ", "17. ", "18. ", "19. "],
+                "Disciplinas Básicas": ["Cálculo", "Física", "Química", "Termo", "FT", "MecFlu"],
+                "Disciplinas Profissionais": ["OpUnit", "Reatores", "Controle", "Projetos"],
+                "Disciplinas Avançadas": ["Econ", "Gestão", "Amb", "Seg", "Lab", "Estágio", "Bio", "Petro", "Poli", "Cat", "Sim", "Otim", "TCC"]
+            }
 
-            st.markdown("#### Detalhamento")
+            for titulo_grupo, palavras_chave in grupos_analise.items():
+                # Filtra colunas que contêm qualquer uma das palavras-chave
+                cols_grupo = [c for c in cols_notas if any(palavra in c for palavra in palavras_chave)]
+                
+                if cols_grupo:
+                    df_grupo = df[cols_grupo].apply(pd.to_numeric, errors='coerce')
+                    medias_grupo = df_grupo.mean().sort_values(ascending=True)
+                    
+                    if not medias_grupo.empty:
+                        with st.expander(f"📊 {titulo_grupo} (Clique para expandir)", expanded=False):
+                            fig = px.bar(
+                                medias_grupo, 
+                                orientation='h', 
+                                x=medias_grupo.values, 
+                                y=medias_grupo.index,
+                                text_auto='.2f',
+                                labels={'index': '', 'x': 'Média'},
+                                color=medias_grupo.values,
+                                color_continuous_scale=[(0, '#d32f2f'), (0.5, '#dba800'), (1, '#002060')]
+                            )
+                            fig.update_layout(
+                                height=max(400, len(medias_grupo)*30), # Altura dinâmica
+                                paper_bgcolor='rgba(0,0,0,0)', 
+                                plot_bgcolor='rgba(0,0,0,0)',
+                                font=dict(family="Segoe UI, sans-serif", size=12),
+                                coloraxis_showscale=False
+                            )
+                            st.plotly_chart(fig, use_container_width=True)
+
+            st.markdown("---")
+            st.markdown("#### Detalhamento Completo")
             st.dataframe(df, use_container_width=True, height=500)
             
             csv = df.to_csv(index=False).encode('utf-8-sig')
