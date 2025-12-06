@@ -98,7 +98,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==============================================================================
-# 4. FUNÇÕES DE SUPORTE E LISTAS GLOBAIS
+# 4. FUNÇÕES DE SUPORTE
 # ==============================================================================
 SECOES = [
     "1. Gerais", "2. Específicas", "3. Básicas", 
@@ -443,7 +443,17 @@ if modo_operacao == "📝 Nova Transcrição":
                 try:
                     df_new = pd.DataFrame([dados_salvar])
                     if os.path.exists(ARQUIVO_DB):
-                        df_new.to_csv(ARQUIVO_DB, mode='a', header=False, index=False)
+                        # --- CORREÇÃO DE SEGURANÇA PARA ARQUIVOS ANTIGOS ---
+                        # Tenta ler e, se falhar ou não tiver a coluna, cria uma nova limpa
+                        try:
+                            df_antigo = pd.read_csv(ARQUIVO_DB)
+                            if 'Data_Registro' not in df_antigo.columns:
+                                df_antigo['Data_Registro'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                            df_final = pd.concat([df_antigo, df_new], ignore_index=True)
+                            df_final.to_csv(ARQUIVO_DB, index=False)
+                        except:
+                             # Se o arquivo estiver corrompido, sobrescreve/recria
+                            df_new.to_csv(ARQUIVO_DB, mode='w', header=True, index=False)
                     else:
                         df_new.to_csv(ARQUIVO_DB, mode='w', header=True, index=False)
                     
