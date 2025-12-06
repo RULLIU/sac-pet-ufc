@@ -98,13 +98,14 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==============================================================================
-# 4. FUNÇÕES DE SUPORTE
+# 4. FUNÇÕES DE SUPORTE E LISTAS GLOBAIS
 # ==============================================================================
 SECOES = [
     "1. Gerais", "2. Específicas", "3. Básicas", 
     "4. Profissionais", "5. Avançadas", "6. Reflexão"
 ]
 
+# Listas globais
 LISTA_PETIANOS = sorted([
     "", "Ana Carolina", "Ana Clara", "Ana Júlia", 
     "Eric Rullian", "Gildelandio Junior", 
@@ -444,15 +445,13 @@ if modo_operacao == "📝 Nova Transcrição":
                     df_new = pd.DataFrame([dados_salvar])
                     if os.path.exists(ARQUIVO_DB):
                         # --- CORREÇÃO DE SEGURANÇA PARA ARQUIVOS ANTIGOS ---
-                        # Tenta ler e, se falhar ou não tiver a coluna, cria uma nova limpa
                         try:
-                            df_antigo = pd.read_csv(ARQUIVO_DB)
+                            df_antigo = pd.read_csv(ARQUIVO_DB, dtype=str)
                             if 'Data_Registro' not in df_antigo.columns:
                                 df_antigo['Data_Registro'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                             df_final = pd.concat([df_antigo, df_new], ignore_index=True)
                             df_final.to_csv(ARQUIVO_DB, index=False)
                         except:
-                             # Se o arquivo estiver corrompido, sobrescreve/recria
                             df_new.to_csv(ARQUIVO_DB, mode='w', header=True, index=False)
                     else:
                         df_new.to_csv(ARQUIVO_DB, mode='w', header=True, index=False)
@@ -545,17 +544,11 @@ elif modo_operacao == "📊 Painel Gerencial":
     
     if os.path.exists(ARQUIVO_DB):
         try:
-            df = pd.read_csv(ARQUIVO_DB, dtype={'Matricula': str})
+            # Lê tudo como string primeiro para segurança
+            df = pd.read_csv(ARQUIVO_DB, dtype=str)
             
-            # FILTRO POR PETIANO
-            petianos_db = sorted(list(df['Petiano_Responsavel'].unique()))
-            filtro_pet = st.sidebar.selectbox("Filtrar por Responsável:", ["Todos"] + petianos_db)
-            
-            if filtro_pet != "Todos":
-                df = df[df['Petiano_Responsavel'] == filtro_pet]
-
             # FILTRO POR SEMESTRE
-            sems_db = sorted(list(df['Semestre'].unique()))
+            sems_db = sorted(list(df['Semestre'].unique())) if 'Semestre' in df.columns else []
             filtro_sem = st.sidebar.selectbox("Filtrar por Semestre:", ["Todos"] + sems_db)
             
             if filtro_sem != "Todos":
@@ -565,17 +558,19 @@ elif modo_operacao == "📊 Painel Gerencial":
             c1, c2, c3, c4 = st.columns(4)
             c1.metric("Formulários", len(df))
             
+            # Separa colunas de notas
             ignorar = ['Nome', 'Matricula', 'Semestre', 'Curriculo', 'Data_Registro', 'Petiano_Responsavel']
             cols_notas = [c for c in df.columns if c not in ignorar and not c.startswith("Obs") and not c.startswith("Auto") and not c.startswith("Contribuição") and not c.startswith("Exemplos") and not c.startswith("Competências") and not c.startswith("Plano") and not c.startswith("Comentários") and not c.startswith("Observações")]
             
+            # Converte para numérico (N/A vira NaN)
             df_nums = df[cols_notas].apply(pd.to_numeric, errors='coerce')
+            
             if not df_nums.empty:
-                # Cálculo de Média e Desvio Padrão
                 todos_valores = df_nums.stack()
                 media = todos_valores.mean()
                 desvio = todos_valores.std()
                 
-                c2.metric("Média Geral", f"{media:.2f}/5.0")
+                c2.metric("Média Geral (Válidas)", f"{media:.2f}/5.0")
                 c3.metric("Desvio Padrão", f"{desvio:.2f}")
             
             if 'Data_Registro' in df.columns:
@@ -584,7 +579,7 @@ elif modo_operacao == "📊 Painel Gerencial":
             
             st.markdown("---")
             
-            # --- SEÇÃO DE GRÁFICOS POR BLOCOS (IDV PET SEM VERMELHO) ---
+            # --- SEÇÃO DE GRÁFICOS POR BLOCOS ---
             st.markdown("#### 📈 Análise por Blocos de Competência")
             
             grupos_analise = {
@@ -603,7 +598,7 @@ elif modo_operacao == "📊 Painel Gerencial":
                     medias_grupo = df_grupo.mean().sort_values(ascending=True)
                     
                     if not medias_grupo.empty:
-                        with st.expander(f"📊 {titulo_grupo} (Clique para expandir)", expanded=False):
+                        with st.expander(f"📊 {titulo_grupo}", expanded=False):
                             fig = px.bar(
                                 medias_grupo, 
                                 orientation='h', 
@@ -612,7 +607,7 @@ elif modo_operacao == "📊 Painel Gerencial":
                                 text_auto='.2f',
                                 labels={'index': '', 'x': 'Média'},
                                 color=medias_grupo.values,
-                                # CORES DO PET AJUSTADAS (CINZA -> DOURADO -> AZUL)
+                                # CORES DO PET: Cinza -> Dourado -> Azul
                                 color_continuous_scale=[(0, '#cfd8dc'), (0.5, '#dba800'), (1, '#002060')]
                             )
                             fig.update_layout(
