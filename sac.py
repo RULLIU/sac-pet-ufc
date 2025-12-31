@@ -10,7 +10,7 @@ import pandas as pd
 import plotly.express as px
 
 # ==============================================================================
-# 1. CONFIGURAÇÕES
+# 1) CONFIGURAÇÕES
 # ==============================================================================
 st.set_page_config(
     page_title="S.A.C. - PET Engenharia Química",
@@ -21,23 +21,21 @@ st.set_page_config(
 
 ARQUIVO_DB = "respostas_sac_deq.csv"
 ARQUIVO_BACKUP = "_backup_autosave.json"
-CSV_ENCODING = "utf-8-sig"   # Amigável para Excel
+CSV_ENCODING = "utf-8-sig"   # amigável para Excel
 
 # ==============================================================================
-# 2. ESTILO
+# 2) ESTILO
 # ==============================================================================
 st.markdown("""
 <style>
 :root { --primary-color: #002060; }
 .stApp { font-family: 'Segoe UI', 'Roboto', sans-serif; }
-
 h1, h2, h3, h4 {
     color: var(--primary-color) !important;
     font-weight: 800 !important;
     text-transform: uppercase;
     letter-spacing: 0.05em;
 }
-
 @media (prefers-color-scheme: dark) {
     h1, h2, h3, h4 { color: #82b1ff !important; }
     .pergunta-card { background-color: #1e1e1e !important; border-left: 5px solid #82b1ff !important; border: 1px solid #333 !important; }
@@ -50,39 +48,32 @@ h1, h2, h3, h4 {
     .manual-box { background-color: #f0f2f6 !important; border: 1px solid #ddd !important; }
     .edit-warning { background-color: #fff3e0 !important; color: #e65100 !important; border: 1px solid #ffe0b2 !important; }
 }
-
-.pergunta-card {
-    border-radius: 8px; padding: 20px; margin-bottom: 25px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-}
+.pergunta-card { border-radius: 8px; padding: 20px; margin-bottom: 25px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
 .pergunta-texto { font-size: 1.1rem; font-weight: 700; margin-bottom: 15px; opacity: 0.95; }
-.stButton button {
-    border-radius: 6px; font-weight: 700; text-transform: uppercase; height: 3.5em; width: 100%; transition: all 0.3s ease;
-}
+.stButton button { border-radius: 6px; font-weight: 700; text-transform: uppercase; height: 3.5em; width: 100%; transition: all 0.3s ease; }
 .botao-avancar button { background-color: transparent; border: 2px solid #002060; color: #002060; }
 .botao-avancar button:hover { background-color: #002060; color: white; transform: translateX(5px); }
 .botao-final button { background-color: #002060 !important; color: white !important; border: none; height: 4.5em; font-size: 1.1rem; }
 .botao-final button:hover { background-color: #003399 !important; transform: scale(1.02); }
 .manual-box { padding: 15px; border-radius: 8px; margin-bottom: 15px; }
 .edit-warning { padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: center; font-weight: bold; }
-
-#MainMenu {visibility: hidden;}
-footer {visibility: hidden;}
+#MainMenu{visibility:hidden} footer{visibility:hidden}
 </style>
 """, unsafe_allow_html=True)
 
 # ==============================================================================
-# 3. CABEÇALHO
+# 3) CABEÇALHO
 # ==============================================================================
 st.markdown("""
-<div style="text-align: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 2px solid rgba(128,128,128,0.2);">
-    <h1 style="margin: 0; font-size: 2.5rem;">S.A.C.</h1>
-    <div style="font-size: 1.2rem; font-weight: 600; opacity: 0.8;">SISTEMA DE AVALIAÇÃO CURRICULAR - MÓDULO DE TRANSCRIÇÃO</div>
-    <div style="font-size: 0.9rem; opacity: 0.6; margin-top: 5px;">PET ENGENHARIA QUÍMICA - UNIVERSIDADE FEDERAL DO CEARÁ</div>
+<div style="text-align:center;margin-bottom:30px;padding-bottom:20px;border-bottom:2px solid rgba(128,128,128,0.2);">
+  <h1 style="margin:0;font-size:2.5rem;">S.A.C.</h1>
+  <div style="font-size:1.2rem;font-weight:600;opacity:0.8;">SISTEMA DE AVALIAÇÃO CURRICULAR - MÓDULO DE TRANSCRIÇÃO</div>
+  <div style="font-size:0.9rem;opacity:0.6;margin-top:5px;">PET ENGENHARIA QUÍMICA - UNIVERSIDADE FEDERAL DO CEARÁ</div>
 </div>
 """, unsafe_allow_html=True)
 
 # ==============================================================================
-# 4. SUPORTE / ESTADO
+# 4) SUPORTE / ESTADO
 # ==============================================================================
 SECOES = ["1. Gerais", "2. Específicas", "3. Básicas", "4. Profissionais", "5. Avançadas", "6. Reflexão"]
 
@@ -90,8 +81,11 @@ LISTA_PETIANOS = sorted(["", "Ana Carolina", "Ana Clara", "Ana Júlia", "Eric Ru
 LISTA_SEMESTRES = [f"{i}º Semestre" for i in range(1, 11)]
 LISTA_CURRICULOS = ["Novo (2023.1)", "Antigo (2005.1)", "Troca de Matriz (Velha -> Nova)"]
 
-if 'form_key' not in st.session_state: st.session_state.form_key = 0
-if "nav_etapa" not in st.session_state: st.session_state["nav_etapa"] = SECOES[0]
+# Estado inicial seguro
+if "nav_etapa" not in st.session_state:
+    st.session_state["nav_etapa"] = SECOES[0]
+if 'form_key' not in st.session_state:
+    st.session_state.form_key = 0
 
 def carregar_backup():
     if os.path.exists(ARQUIVO_BACKUP):
@@ -103,6 +97,7 @@ def carregar_backup():
                         st.session_state[k] = v
         except Exception:
             pass
+
 if 'backup_restaurado' not in st.session_state:
     carregar_backup()
     st.session_state.backup_restaurado = True
@@ -116,6 +111,7 @@ def salvar_estado():
         pass
 
 def navegar_proxima():
+    """Callback seguro: só aqui alteramos nav_etapa e rerun."""
     try:
         idx = SECOES.index(st.session_state["nav_etapa"])
         if idx < len(SECOES) - 1:
@@ -149,12 +145,12 @@ def ler_csv_seguro(caminho: str) -> pd.DataFrame:
     return pd.read_csv(caminho, dtype=str)
 
 # ==============================================================================
-# 5. CHECKBOXES EXCLUSIVOS (N/A, 0..5) – sem forms
+# 5) CHECKBOXES EXCLUSIVOS (N/A, 0..5) – fora de forms
 # ==============================================================================
 NOTA_LABELS = ["N/A", "0", "1", "2", "3", "4", "5"]
 
 def _on_checkbox_change(grupo_id: str, label_clicked: str, labels: list, k_suffix: str):
-    """Garante exclusividade e nunca deixa sem seleção (permitido fora de st.form)."""
+    """Exclusividade: apenas um marcado; nunca deixa vazio."""
     nota_key = f"nota_{grupo_id}{k_suffix}"
     cb_key = f"cb_{grupo_id}_{label_clicked}{k_suffix}"
     current = st.session_state.get(cb_key, False)
@@ -168,11 +164,11 @@ def _on_checkbox_change(grupo_id: str, label_clicked: str, labels: list, k_suffi
             st.session_state[f"cb_{grupo_id}_{lab}{k_suffix}"] = (lab == sel)
 
 def renderizar_pergunta(texto_pergunta, id_unica, valor_padrao="N/A", obs_padrao="", key_suffix=""):
-    """
-    Bloco da pergunta: checkboxes exclusivos + observação.
-    """
+    """Card da pergunta: checkboxes exclusivos + observação."""
     k = key_suffix if key_suffix else f"_{st.session_state.form_key}"
     labels = NOTA_LABELS
+
+    # Estado inicial da nota e checkboxes
     nota_key = f"nota_{id_unica}{k}"
     if nota_key not in st.session_state or st.session_state[nota_key] not in labels:
         st.session_state[nota_key] = str(valor_padrao) if str(valor_padrao) in labels else "N/A"
@@ -206,9 +202,8 @@ def renderizar_pergunta(texto_pergunta, id_unica, valor_padrao="N/A", obs_padrao
             )
 
 # ==============================================================================
-# 6. MAPA DE QUESTÕES (rótulos amigáveis e ordem)
+# 6) MAPA DE QUESTÕES (ordem + rótulos “Questão X”)
 # ==============================================================================
-# Ordem de aparecimento (garante títulos e gráficos em ordem natural)
 ORDEM_QUESTOES = [
     # 1. Gerais
     ("q1",  "Projetar e conduzir experimentos e interpretar resultados"),
@@ -232,8 +227,8 @@ ORDEM_QUESTOES = [
     ("q18", "Aplicação de conhecimentos em projeto básico e dimensionamento"),
     ("q19", "Execução de projetos de produção e melhorias de processos"),
     # 3. Básicas
-    ("calc_21",   "Calculo: Analisar grandes volumes de dados"),
-    ("calc_52",   "Calculo: Formação Básica"),
+    ("calc_21",   "Cálculo: Analisar grandes volumes de dados"),
+    ("calc_52",   "Cálculo: Formação Básica"),
     ("fis_22",    "Física: Analisar criticamente a operação e manutenção de sistemas"),
     ("fis_53",    "Física: Ciência da Engenharia"),
     ("qui_23",    "Química: Aplicar conhecimentos de transformação a processos"),
@@ -286,15 +281,11 @@ ORDEM_QUESTOES = [
     ("q20_indiv","Capacidade de aprender rapidamente novos conceitos (Geral)")
 ]
 
-# Ajuda: gera rotulagem amigável “Questão i” e mantém texto completo no hover
 ID_PARA_LABEL = {id_: f"Questão {i+1}" for i, (id_, _) in enumerate(ORDEM_QUESTOES)}
 ID_PARA_TEXTO = {id_: titulo for (id_, titulo) in ORDEM_QUESTOES}
 
 def dataframe_ordenado_para_visual(df: pd.DataFrame):
-    """
-    Retorna (df_m, mapa_ordem) onde df_m tem colunas renomeadas para “Questão i” em ordem;
-    mapa_ordem lista de tuplas (questao_label, texto_completo).
-    """
+    """Retorna df numérico com colunas renomeadas para “Questão X” e em ordem natural + mapa (Questão X → texto completo)."""
     ids_presentes = [id_ for id_, _ in ORDEM_QUESTOES if id_ in df.columns]
     if not ids_presentes:
         return pd.DataFrame(), []
@@ -306,7 +297,7 @@ def dataframe_ordenado_para_visual(df: pd.DataFrame):
     return df_nums, mapa
 
 # ==============================================================================
-# 7. BARRA LATERAL
+# 7) BARRA LATERAL
 # ==============================================================================
 with st.sidebar:
     st.markdown("### ⚙️ MODO DE OPERAÇÃO")
@@ -331,7 +322,7 @@ with st.sidebar:
             st.error("O sistema **BLOQUEIA** o salvamento se a Reflexão Final estiver vazia (use **EM BRANCO** / **NÃO RESPONDEU**).")
 
 # ==============================================================================
-# 8. NOVA TRANSCRIÇÃO (sem forms; checkboxes com on_change)
+# 8) NOVA TRANSCRIÇÃO (sem forms; botões com callback)
 # ==============================================================================
 if modo_operacao == "📝 Nova Transcrição":
     secao_ativa = st.radio("Etapas:", SECOES, horizontal=True, key="nav_etapa", label_visibility="collapsed")
@@ -343,42 +334,51 @@ if modo_operacao == "📝 Nova Transcrição":
         st.button("SALVAR RASCUNHO E AVANÇAR ➡️", on_click=navegar_proxima, key=key)
         st.markdown('</div>', unsafe_allow_html=True)
 
+    # 1. Gerais (0..7)
     if secao_ativa == SECOES[0]:
         st.markdown("### 1. COMPETÊNCIAS TÉCNICAS E GERAIS")
         for id_, titulo in ORDEM_QUESTOES[:8]:
-            renderizar_pergunta(f"{ORDEM_QUESTOES.index((id_, titulo))+1}. {titulo}", id_, key_suffix=k_suffix)
+            stt = f"{ID_PARA_LABEL[id_]} — {titulo}"
+            renderizar_pergunta(stt, id_, key_suffix=k_suffix)
         st.markdown("---"); bloco_avancar("btn_nav1")
 
+    # 2. Específicas (8..18)
     elif secao_ativa == SECOES[1]:
         st.markdown("### 2. COMPETÊNCIAS ESPECÍFICAS")
         for id_, titulo in ORDEM_QUESTOES[8:19]:
-            renderizar_pergunta(f"{ORDEM_QUESTOES.index((id_, titulo))+1}. {titulo}", id_, key_suffix=k_suffix)
+            stt = f"{ID_PARA_LABEL[id_]} — {titulo}"
+            renderizar_pergunta(stt, id_, key_suffix=k_suffix)
         st.markdown("---"); bloco_avancar("btn_nav2")
 
+    # 3. Básicas (19..30)
     elif secao_ativa == SECOES[2]:
         st.markdown("### 3. DISCIPLINAS BÁSICAS")
         for id_, titulo in ORDEM_QUESTOES[19:31]:
-            renderizar_pergunta(f"{ORDEM_QUESTOES.index((id_, titulo))+1}. {titulo}", id_, key_suffix=k_suffix)
+            stt = f"{ID_PARA_LABEL[id_]} — {titulo}"
+            renderizar_pergunta(stt, id_, key_suffix=k_suffix)
         st.markdown("---"); bloco_avancar("btn_nav3")
 
+    # 4. Profissionais (31..40)
     elif secao_ativa == SECOES[3]:
         st.markdown("### 4. DISCIPLINAS PROFISSIONALIZANTES")
         for id_, titulo in ORDEM_QUESTOES[31:41]:
-            renderizar_pergunta(f"{ORDEM_QUESTOES.index((id_, titulo))+1}. {titulo}", id_, key_suffix=k_suffix)
+            stt = f"{ID_PARA_LABEL[id_]} — {titulo}"
+            renderizar_pergunta(stt, id_, key_suffix=k_suffix)
         st.markdown("---"); bloco_avancar("btn_nav4")
 
+    # 5. Avançadas (41..-2)  |  6. Reflexão (última)
     elif secao_ativa == SECOES[4]:
         st.markdown("### 5. DISCIPLINAS AVANÇADAS")
-        for id_, titulo in ORDEM_QUESTOES[41:]:
-            renderizar_pergunta(f"{ORDEM_QUESTOES.index((id_, titulo))+1}. {titulo}", id_, key_suffix=k_suffix)
+        for id_, titulo in ORDEM_QUESTOES[41:-1]:  # até antes da questão de reflexão geral
+            stt = f"{ID_PARA_LABEL[id_]} — {titulo}"
+            renderizar_pergunta(stt, id_, key_suffix=k_suffix)
         st.markdown("---"); bloco_avancar("btn_nav5")
 
     elif secao_ativa == SECOES[5]:
         st.markdown("### 6. REFLEXÃO FINAL E AUTOAVALIAÇÃO")
         st.warning("⚠️ Obrigatório. Se o físico estiver vazio, digite 'EM BRANCO'.")
-        # A questão geral (q20_indiv) está no fim de ORDEM_QUESTOES
         id20, tit20 = ORDEM_QUESTOES[-1]
-        renderizar_pergunta(f"{ORDEM_QUESTOES.index((id20, tit20))+1}. {tit20}", id20, key_suffix=k_suffix)
+        renderizar_pergunta(f"{ID_PARA_LABEL[id20]} — {tit20}", id20, key_suffix=k_suffix)
 
         st.markdown("#### TRANSCRIÇÃO DAS RESPOSTAS ABERTAS")
         txt_fortes = st.text_area("Pontos Fortes *", help="Obrigatório.", key=f"obs_fortes{k_suffix}")
@@ -408,7 +408,7 @@ if modo_operacao == "📝 Nova Transcrição":
                 "Plano de Desenvolvimento": (txt_fut2 or "").strip(),
                 "Observações Finais": (txt_final or "").strip(),
             }
-            # captura notas e observações por item
+            # coleta notas e observações por item
             for k, v in st.session_state.items():
                 if k.endswith(k_suffix):
                     if k.startswith("nota_"):
@@ -447,7 +447,7 @@ if modo_operacao == "📝 Nova Transcrição":
     salvar_estado()
 
 # ==============================================================================
-# 9. EDIÇÃO DE REGISTRO (sem forms; checkboxes exclusivos)
+# 9) EDIÇÃO DE REGISTRO (sem forms; checkboxes exclusivos)
 # ==============================================================================
 elif modo_operacao == "✏️ Editar Registro":
     st.markdown("### ✏️ MODO DE EDIÇÃO")
@@ -462,7 +462,7 @@ elif modo_operacao == "✏️ Editar Registro":
             df["Registro_ID"] = [str(uuid.uuid4()) for _ in range(len(df))]
             escrever_csv_atomico(df, ARQUIVO_DB, encoding=CSV_ENCODING)
 
-        # Busca/filtro
+        # Busca / filtro
         col1, col2 = st.columns([0.5, 0.5])
         termo = col1.text_input("🔎 Buscar por Nome/Matrícula (contém):")
         sems_db = sorted([s for s in df.get('Semestre', pd.Series(dtype=str)).dropna().unique()])
@@ -504,14 +504,12 @@ elif modo_operacao == "✏️ Editar Registro":
 
                 st.markdown("---")
                 st.subheader("2) Corrigir Nota de uma Questão")
-                # Colunas de nota existentes
-                cols_notas = [id_ for id_, _ in ORDEM_QUESTOES if id_ in df.columns]
-                # Mostrar “Questão X” no seletor
-                labels_disp = [ID_PARA_LABEL[id_] for id_ in cols_notas]
+                cols_notas_existentes = [id_ for id_, _ in ORDEM_QUESTOES if id_ in df.columns]
+                labels_disp = [ID_PARA_LABEL[id_] for id_ in cols_notas_existentes]
                 escolha_label = st.selectbox("Questão:", labels_disp)
-                col_edit = cols_notas[labels_disp.index(escolha_label)]
+                col_edit = cols_notas_existentes[labels_disp.index(escolha_label)]
 
-                # Grupo de checkboxes exclusivos para nova nota
+                # Checkboxes exclusivos para nova nota
                 edit_labels = NOTA_LABELS
                 k_edit = "_edit"
                 nota_edit_key = f"nota_edit{k_edit}"
@@ -519,12 +517,10 @@ elif modo_operacao == "✏️ Editar Registro":
                 if nota_edit_key not in st.session_state or st.session_state[nota_edit_key] not in edit_labels:
                     st.session_state[nota_edit_key] = valor_atual if valor_atual in edit_labels else "N/A"
                 sel_edit = st.session_state[nota_edit_key]
-                # Inicializa controles
                 for lab in edit_labels:
                     cb_key = f"cb_edit_{lab}{k_edit}"
                     if cb_key not in st.session_state:
                         st.session_state[cb_key] = (lab == sel_edit)
-
                 cols_e = st.columns(len(edit_labels))
                 for i, lab in enumerate(edit_labels):
                     cb_key = f"cb_edit_{lab}{k_edit}"
@@ -567,7 +563,7 @@ elif modo_operacao == "✏️ Editar Registro":
                     st.success("Registro atualizado com sucesso!"); st.rerun()
 
 # ==============================================================================
-# 10. PAINEL GERENCIAL (rótulos “Questão X”; ordem natural; hover completo)
+# 10) PAINEL GERENCIAL (rótulos “Questão X” + ordem + hover texto completo)
 # ==============================================================================
 elif modo_operacao == "📊 Painel Gerencial":
     st.markdown("### 📊 INDICADORES DE DESEMPENHO")
@@ -579,11 +575,7 @@ elif modo_operacao == "📊 Painel Gerencial":
         filtro_sem = st.sidebar.selectbox("Filtrar por Semestre:", ["Todos"] + sems_db)
         if filtro_sem != "Todos": df = df[df['Semestre'] == filtro_sem]
 
-        # Dados numéricos em ordem e labels amigáveis
-        df_nums, mapa = dataframe_ordenado_para_visual(df)
-        # mapa: [(Questão i, texto completo), ...]
-
-        # --- RESUMO ---
+        df_nums, mapa = dataframe_ordenado_para_visual(df)  # respostas em ordem com “Questão X”
         st.markdown("#### 📍 Resumo")
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("Formulários", len(df))
@@ -601,15 +593,12 @@ elif modo_operacao == "📊 Painel Gerencial":
                     c4.metric("Última Atividade", "-")
         st.markdown("---")
 
-        # --- MÉDIA POR QUESTÃO (ordem natural; hover com texto completo) ---
         st.markdown("#### 📈 Média por Questão (ordem)")
         if not df_nums.empty:
             medias = df_nums.mean().reset_index()
             medias.columns = ["Questão", "Média"]
-            # Adiciona descrição completa para hover
             desc_map = {q: desc for q, desc in mapa}
             medias["Descrição Completa"] = medias["Questão"].map(desc_map)
-
             fig = px.bar(
                 medias,
                 x="Média", y="Questão",
@@ -621,7 +610,7 @@ elif modo_operacao == "📊 Painel Gerencial":
                 color_continuous_scale=[(0, '#cfd8dc'), (0.5, '#dba800'), (1, '#002060')]
             )
             fig.update_layout(
-                height=max(400, len(medias) * 26),
+                height=max(420, len(medias) * 26),
                 paper_bgcolor='rgba(0,0,0,0)',
                 plot_bgcolor='rgba(0,0,0,0)',
                 coloraxis_showscale=False
@@ -632,22 +621,17 @@ elif modo_operacao == "📊 Painel Gerencial":
             st.info("Sem colunas de nota numéricas para calcular médias.")
 
         st.markdown("---")
-
-        # --- TABELA (ordem; rótulos “Questão X”) ---
         st.markdown("#### 📋 Tabela (respostas em ordem)")
         if not df_nums.empty:
-            # Concatena identificação + respostas em ordem
             id_cols = ["Registro_ID","Nome","Matricula","Semestre","Curriculo","Petiano_Responsavel","Data_Registro"]
             id_cols_presentes = [c for c in id_cols if c in df.columns]
             df_view = pd.concat([df[id_cols_presentes], df_nums], axis=1)
-            # Filtros simples
             colA, colB = st.columns(2)
             nome_q = colA.text_input("Filtrar por Nome (contém):", "")
             mat_q  = colB.text_input("Filtrar por Matrícula (contém):", "")
             if nome_q: df_view = df_view[df_view['Nome'].str.contains(nome_q, case=False, na=False)]
             if mat_q:  df_view = df_view[df_view['Matricula'].str.contains(mat_q, case=False, na=False)]
-
-            st.dataframe(df_view, use_container_width=True, height=500)
+            st.dataframe(df_view, use_container_width=True, height=520)
             csv_bytes = df_view.to_csv(index=False, encoding=CSV_ENCODING).encode(CSV_ENCODING)
             st.download_button("📥 Baixar CSV (visualização)", csv_bytes, file_name=f"sac_visual_{datetime.now().strftime('%Y%m%d')}.csv", mime="text/csv")
         else:
