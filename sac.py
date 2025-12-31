@@ -84,14 +84,6 @@ h1, h2, h3, h4 {
 .manual-box { padding: 15px; border-radius: 8px; margin-bottom: 15px; }
 .edit-warning { padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: center; font-weight: bold; }
 
-/* Aparência do radio como "caixas" */
-div[role="radiogroup"] > label {
-    margin-right: 8px;
-    padding: 6px 10px;
-    border: 1px solid #e0e0e0;
-    border-radius: 6px;
-}
-
 #MainMenu {visibility: hidden;}
 footer {visibility: hidden;}
 </style>
@@ -194,28 +186,64 @@ def ler_csv_seguro(caminho: str) -> pd.DataFrame:
             continue
     return pd.read_csv(caminho, dtype=str)
 
+# ---- Lógica de grupo de checkboxes exclusivos (N/A, 0..5)
+def _on_checkbox_change(grupo_id: str, label_clicked: str, labels: list, k_suffix: str):
+    """Callback: garante exclusividade e não permite ficar sem seleção."""
+    nota_key = f"nota_{grupo_id}{k_suffix}"
+    cb_key = f"cb_{grupo_id}_{label_clicked}{k_suffix}"
+    current = st.session_state.get(cb_key, False)
+
+    if current:
+        # Usuário marcou este -> vira selecionado único
+        st.session_state[nota_key] = label_clicked
+        for lab in labels:
+            st.session_state[f"cb_{grupo_id}_{lab}{k_suffix}"] = (lab == label_clicked)
+    else:
+        # Usuário tentou desmarcar; reverte para o atual selecionado
+        sel = st.session_state.get(nota_key, "N/A")
+        for lab in labels:
+            st.session_state[f"cb_{grupo_id}_{lab}{k_suffix}"] = (lab == sel)
+
 def renderizar_pergunta(texto_pergunta, id_unica, valor_padrao="N/A", obs_padrao="", key_suffix=""):
     """
-    Renderiza um bloco de pergunta (nota via radio + observação) e guarda diretamente em session_state.
+    Renderiza um bloco de pergunta (nota via checkboxes exclusivos + observação).
+    Guarda diretamente em session_state:
+      - nota_{id_unica}{suffix} -> "N/A"/"0"/.../"5"
+      - cb_{id_unica}_<label>{suffix} -> True/False (estado visual)
     """
     k = key_suffix if key_suffix else f"_{st.session_state.form_key}"
+    labels = ["N/A", "0", "1", "2", "3", "4", "5"]
+
+    # Inicializa a nota padrão e os checkboxes (apenas 1 marcado)
+    nota_key = f"nota_{id_unica}{k}"
+    if nota_key not in st.session_state or st.session_state[nota_key] not in labels:
+        st.session_state[nota_key] = str(valor_padrao) if str(valor_padrao) in labels else "N/A"
+    selected = st.session_state[nota_key]
+    for lab in labels:
+        cb_key = f"cb_{id_unica}_{lab}{k}"
+        if cb_key not in st.session_state:
+            st.session_state[cb_key] = (lab == selected)
+
+    # UI
     with st.container():
         st.markdown(f"""
         <div class="pergunta-card"><div class="pergunta-texto">{texto_pergunta}</div></div>
         """, unsafe_allow_html=True)
         c1, c2 = st.columns([0.55, 0.45])
+
         with c1:
-            # Troca do select_slider por radio horizontal (N/A, 0..5)
-            opcoes = ["N/A", "0", "1", "2", "3", "4", "5"]
-            valor_inicial = str(valor_padrao) if str(valor_padrao) in opcoes else "N/A"
-            st.radio(
-                "Nível de Competência",
-                options=opcoes,
-                index=opcoes.index(valor_inicial),
-                key=f"nota_{id_unica}{k}",
-                help="Selecione 'N/A' se vazio.",
-                horizontal=True,
-            )
+            cols = st.columns(len(labels))
+            for i, lab in enumerate(labels):
+                cb_key = f"cb_{id_unica}_{lab}{k}"
+                cols[i].checkbox(
+                    lab,
+                    value=st.session_state.get(cb_key, lab == selected),
+                    key=cb_key,
+                    on_change=_on_checkbox_change,
+                    args=(id_unica, lab, labels, k),
+                    help="Selecione apenas uma opção. Use 'N/A' se vazio."
+                )
+
         with c2:
             st.text_input(
                 "Transcrição de Obs.",
@@ -585,21 +613,49 @@ elif modo_operacao == "✏️ Editar Registro":
 
                             st.markdown("---")
                             st.subheader("2. Correção de Notas Específicas")
-                            st.info("Selecione a competência/disciplina abaixo para corrigir a nota lançada.")
+                            st.info("Selecione a competência/disciplina abaixo e marque a nova nota.")
 
                             cols_notas = colunas_nota(df)
-
                             col_edit = st.selectbox("Escolha o campo para editar:", cols_notas)
-                            val_atual = dados.get(col_edit, "N/A")
-                            if val_atual not in ["N/A", "0", "1", "2", "3", "4", "5"]:
-                                val_atual = "N/A"
 
-                            new_val = st.radio(
-                                f"Nova Nota para: {col_edit}",
-                                options=["N/A", "0", "1", "2", "3", "4", "5"],
-                                index=["N/A","0","1","2","3","4","5"].index(val_atual),
-                                horizontal=True
-                            )
+                            # Grupo de checkboxes exclusivos para edição
+                            edit_labels = ["N/A","0","1","2","3","4","5"]
+                            k_edit = "_edit"
+
+                            # Inicializa estado do grupo de edição
+                            nota_edit_key = f"nota_edit{k_edit}"
+                            valor_atual = dados.get(col_edit, "N/A")
+                            if nota_edit_key not in st.session_state or st.session_state[nota_edit_key] not in edit_labels:
+                                st.session_state[nota_edit_key] = valor_atual if valor_atual in edit_labels else "N/A"
+                            sel_edit = st.session_state[nota_edit_key]
+
+                            for lab in edit_labels:
+                                cb_key = f"cb_edit_{lab}{k_edit}"
+                                if cb_key not in st.session_state:
+                                    st.session_state[cb_key] = (lab == sel_edit)
+
+                            cols_e = st.columns(len(edit_labels))
+                            for i, lab in enumerate(edit_labels):
+                                cb_key = f"cb_edit_{lab}{k_edit}"
+                                def _cb_edit_change(label_clicked=lab):
+                                    cur = st.session_state.get(cb_key, False)
+                                    if cur:
+                                        st.session_state[nota_edit_key] = label_clicked
+                                        for L in edit_labels:
+                                            st.session_state[f"cb_edit_{L}{k_edit}"] = (L == label_clicked)
+                                    else:
+                                        # não permite desmarcar tudo
+                                        current_sel = st.session_state.get(nota_edit_key, "N/A")
+                                        for L in edit_labels:
+                                            st.session_state[f"cb_edit_{L}{k_edit}"] = (L == current_sel)
+
+                                cols_e[i].checkbox(
+                                    lab,
+                                    value=st.session_state.get(cb_key, lab == sel_edit),
+                                    key=cb_key,
+                                    on_change=_cb_edit_change,
+                                    help="Selecione apenas uma opção."
+                                )
 
                             st.markdown("---")
                             if st.form_submit_button("💾 SALVAR ALTERAÇÕES"):
@@ -608,7 +664,7 @@ elif modo_operacao == "✏️ Editar Registro":
                                 df.at[idx, "Semestre"] = new_sem
                                 df.at[idx, "Curriculo"] = new_curr
                                 df.at[idx, "Petiano_Responsavel"] = new_pet
-                                df.at[idx, col_edit] = new_val
+                                df.at[idx, col_edit] = st.session_state.get(nota_edit_key, "N/A")
 
                                 escrever_csv_atomico(df, ARQUIVO_DB, encoding=CSV_ENCODING)
                                 st.success("Registro atualizado com sucesso!")
