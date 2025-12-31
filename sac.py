@@ -28,7 +28,6 @@ CSV_ENCODING = "utf-8-sig"   # Amigável para Excel
 # ==============================================================================
 st.markdown("""
 <style>
-/* VARIÁVEIS GERAIS */
 :root { --primary-color: #002060; }
 .stApp { font-family: 'Segoe UI', 'Roboto', sans-serif; }
 
@@ -68,14 +67,12 @@ h1, h2, h3, h4 {
 .stButton button {
     border-radius: 6px; font-weight: 700; text-transform: uppercase; height: 3.5em; width: 100%; transition: all 0.3s ease;
 }
-/* Botão "Próximo" */
 .botao-avancar button {
     background-color: transparent; border: 2px solid #002060; color: #002060;
 }
 .botao-avancar button:hover {
     background-color: #002060; color: white; transform: translateX(5px);
 }
-/* Botão "Finalizar" */
 .botao-final button {
     background-color: #002060 !important; color: white !important; border: none; height: 4.5em; font-size: 1.1rem;
 }
@@ -86,6 +83,14 @@ h1, h2, h3, h4 {
 /* CAIXAS DE MENSAGEM */
 .manual-box { padding: 15px; border-radius: 8px; margin-bottom: 15px; }
 .edit-warning { padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: center; font-weight: bold; }
+
+/* Aparência do radio como "caixas" */
+div[role="radiogroup"] > label {
+    margin-right: 8px;
+    padding: 6px 10px;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+}
 
 #MainMenu {visibility: hidden;}
 footer {visibility: hidden;}
@@ -169,7 +174,7 @@ def limpar_formulario():
             pass
 
 def obter_hora_ceara():
-    fuso = timezone(timedelta(hours=-3))  # Fortaleza-CE (sem horário de verão)
+    fuso = timezone(timedelta(hours=-3))  # Fortaleza-CE
     return datetime.now(fuso).strftime("%Y-%m-%d %H:%M:%S")
 
 # ---- Escrita robusta de CSV (atômica) ----
@@ -187,12 +192,11 @@ def ler_csv_seguro(caminho: str) -> pd.DataFrame:
             return pd.read_csv(caminho, dtype=str, encoding=enc)
         except Exception:
             continue
-    # fallback básico
     return pd.read_csv(caminho, dtype=str)
 
 def renderizar_pergunta(texto_pergunta, id_unica, valor_padrao="N/A", obs_padrao="", key_suffix=""):
     """
-    Renderiza um bloco de pergunta (nota + observação) e guarda diretamente em session_state.
+    Renderiza um bloco de pergunta (nota via radio + observação) e guarda diretamente em session_state.
     """
     k = key_suffix if key_suffix else f"_{st.session_state.form_key}"
     with st.container():
@@ -201,12 +205,16 @@ def renderizar_pergunta(texto_pergunta, id_unica, valor_padrao="N/A", obs_padrao
         """, unsafe_allow_html=True)
         c1, c2 = st.columns([0.55, 0.45])
         with c1:
-            st.select_slider(
+            # Troca do select_slider por radio horizontal (N/A, 0..5)
+            opcoes = ["N/A", "0", "1", "2", "3", "4", "5"]
+            valor_inicial = str(valor_padrao) if str(valor_padrao) in opcoes else "N/A"
+            st.radio(
                 "Nível de Competência",
-                options=["N/A", "0", "1", "2", "3", "4", "5"],
-                value=str(valor_padrao),
+                options=opcoes,
+                index=opcoes.index(valor_inicial),
                 key=f"nota_{id_unica}{k}",
-                help="Selecione 'N/A' se vazio."
+                help="Selecione 'N/A' se vazio.",
+                horizontal=True,
             )
         with c2:
             st.text_input(
@@ -505,7 +513,6 @@ if modo_operacao == "📝 Nova Transcrição":
                     if df_antigo.empty:
                         df_final = df_new
                     else:
-                        # assegura coluna Data_Registro
                         if 'Data_Registro' not in df_antigo.columns:
                             df_antigo['Data_Registro'] = obter_hora_ceara()
                         df_final = pd.concat([df_antigo, df_new], ignore_index=True)
@@ -587,10 +594,11 @@ elif modo_operacao == "✏️ Editar Registro":
                             if val_atual not in ["N/A", "0", "1", "2", "3", "4", "5"]:
                                 val_atual = "N/A"
 
-                            new_val = st.select_slider(
+                            new_val = st.radio(
                                 f"Nova Nota para: {col_edit}",
                                 options=["N/A", "0", "1", "2", "3", "4", "5"],
-                                value=val_atual
+                                index=["N/A","0","1","2","3","4","5"].index(val_atual),
+                                horizontal=True
                             )
 
                             st.markdown("---")
