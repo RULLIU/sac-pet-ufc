@@ -1,4 +1,3 @@
-
 # app.py
 import os
 import json
@@ -8,9 +7,10 @@ from datetime import datetime, timedelta, timezone
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+from st_supabase_connection import SupabaseConnection
 
 # ==============================================================================
-# 1) CONFIGURAÇÕES
+# 1) CONFIGURAÇÕES E CONEXÃO
 # ==============================================================================
 st.set_page_config(
     page_title="S.A.C. - PET Engenharia Química",
@@ -19,9 +19,10 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-ARQUIVO_DB = "respostas_sac_deq.csv"
+# Inicializa a conexão com o Supabase
+conn = st.connection("supabase", type=SupabaseConnection)
+
 ARQUIVO_BACKUP = "_backup_autosave.json"
-CSV_ENCODING = "utf-8-sig"   # amigável para Excel
 
 # ==============================================================================
 # 2) ESTILO
@@ -73,13 +74,20 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==============================================================================
-# 4) SUPORTE / ESTADO
+# 4) SUPORTE E BANCO DE DADOS
 # ==============================================================================
 SECOES = ["1. Gerais", "2. Específicas", "3. Básicas", "4. Profissionais", "5. Avançadas", "6. Reflexão"]
-
 LISTA_PETIANOS = sorted(["", "Ana Carolina", "Ana Clara", "Ana Júlia", "Eric Rullian", "Gildelandio Junior", "Lucas Mossmann (trainee)", "Pedro Paulo"])
 LISTA_SEMESTRES = [f"{i}º Semestre" for i in range(1, 11)]
 LISTA_CURRICULOS = ["Novo (2023.1)", "Antigo (2005.1)", "Troca de Matriz (Velha -> Nova)"]
+
+def ler_banco():
+    try:
+        response = conn.query("*", table="respostas_sac", ttl=0).execute()
+        return pd.DataFrame(response.data)
+    except Exception as e:
+        st.error(f"Erro ao ligar ao banco de dados: {e}")
+        return pd.DataFrame()
 
 # Estado inicial seguro
 if "nav_etapa" not in st.session_state:
@@ -111,7 +119,6 @@ def salvar_estado():
         pass
 
 def navegar_proxima():
-    """Callback seguro: só aqui alteramos nav_etapa e rerun."""
     try:
         idx = SECOES.index(st.session_state["nav_etapa"])
         if idx < len(SECOES) - 1:
@@ -132,25 +139,12 @@ def obter_hora_ceara():
     fuso = timezone(timedelta(hours=-3))
     return datetime.now(fuso).strftime("%Y-%m-%d %H:%M:%S")
 
-def escrever_csv_atomico(df_final: pd.DataFrame, destino: str, encoding: str = CSV_ENCODING):
-    tmp = destino + ".tmp"
-    df_final.to_csv(tmp, index=False, encoding=encoding)
-    os.replace(tmp, destino)
-
-def ler_csv_seguro(caminho: str) -> pd.DataFrame:
-    if not os.path.exists(caminho): return pd.DataFrame()
-    for enc in (CSV_ENCODING, "utf-8", "latin-1"):
-        try: return pd.read_csv(caminho, dtype=str, encoding=enc)
-        except Exception: continue
-    return pd.read_csv(caminho, dtype=str)
-
 # ==============================================================================
-# 5) CHECKBOXES EXCLUSIVOS (N/A, 0..5) – fora de forms
+# 5) CHECKBOXES EXCLUSIVOS E RENDERIZAÇÃO
 # ==============================================================================
 NOTA_LABELS = ["N/A", "0", "1", "2", "3", "4", "5"]
 
 def _on_checkbox_change(grupo_id: str, label_clicked: str, labels: list, k_suffix: str):
-    """Exclusividade: apenas um marcado; nunca deixa vazio."""
     nota_key = f"nota_{grupo_id}{k_suffix}"
     cb_key = f"cb_{grupo_id}_{label_clicked}{k_suffix}"
     current = st.session_state.get(cb_key, False)
@@ -164,11 +158,9 @@ def _on_checkbox_change(grupo_id: str, label_clicked: str, labels: list, k_suffi
             st.session_state[f"cb_{grupo_id}_{lab}{k_suffix}"] = (lab == sel)
 
 def renderizar_pergunta(texto_pergunta, id_unica, valor_padrao="N/A", obs_padrao="", key_suffix=""):
-    """Card da pergunta: checkboxes exclusivos + observação."""
     k = key_suffix if key_suffix else f"_{st.session_state.form_key}"
     labels = NOTA_LABELS
 
-    # Estado inicial da nota e checkboxes
     nota_key = f"nota_{id_unica}{k}"
     if nota_key not in st.session_state or st.session_state[nota_key] not in labels:
         st.session_state[nota_key] = str(valor_padrao) if str(valor_padrao) in labels else "N/A"
@@ -191,7 +183,7 @@ def renderizar_pergunta(texto_pergunta, id_unica, valor_padrao="N/A", obs_padrao
                     key=cb_key,
                     on_change=_on_checkbox_change,
                     args=(id_unica, lab, labels, k),
-                    help="Selecione apenas uma opção. Use 'N/A' se vazio."
+                    help="Selecione apenas uma opção."
                 )
         with c2:
             st.text_input(
@@ -202,10 +194,9 @@ def renderizar_pergunta(texto_pergunta, id_unica, valor_padrao="N/A", obs_padrao
             )
 
 # ==============================================================================
-# 6) MAPA DE QUESTÕES (ordem + rótulos “Questão X”)
+# 6) MAPA DE QUESTÕES
 # ==============================================================================
 ORDEM_QUESTOES = [
-    # 1. Gerais
     ("q1",  "Projetar e conduzir experimentos e interpretar resultados"),
     ("q2",  "Desenvolver e/ou utilizar novas ferramentas e técnicas"),
     ("q3",  "Conceber, projetar e analisar sistemas, produtos e processos"),
@@ -214,7 +205,6 @@ ORDEM_QUESTOES = [
     ("q6",  "Comunicação técnica"),
     ("q7",  "Trabalhar e liderar equipes profissionais"),
     ("q8",  "Aplicar ética e legislação no exercício profissional"),
-    # 2. Específicas
     ("q9",  "Aplicar conhecimentos matemáticos, científicos e tecnológicos"),
     ("q10", "Compreender e modelar transferência de quantidade de movimento, calor e massa"),
     ("q11", "Aplicar conhecimentos de fenômenos de transporte ao projeto"),
@@ -226,7 +216,6 @@ ORDEM_QUESTOES = [
     ("q17", "Projetar e otimizar plantas industriais considerando ambiente e segurança"),
     ("q18", "Aplicação de conhecimentos em projeto básico e dimensionamento"),
     ("q19", "Execução de projetos de produção e melhorias de processos"),
-    # 3. Básicas
     ("calc_21",   "Cálculo: Analisar grandes volumes de dados"),
     ("calc_52",   "Cálculo: Formação Básica"),
     ("fis_22",    "Física: Analisar criticamente a operação e manutenção de sistemas"),
@@ -239,7 +228,6 @@ ORDEM_QUESTOES = [
     ("ft_27",     "Fenômenos de Transporte: Comunicação técnica e recursos gráficos"),
     ("mecflu_28", "Mecânica dos Fluidos: Implantar, implementar e controlar soluções"),
     ("mecflu_29", "Mecânica dos Fluidos: Operar e supervisionar instalações"),
-    # 4. Profissionais
     ("op1_30",  "Operações Unitárias I: Inspecionar manutenção"),
     ("op1_55",  "Operações Unitárias I: Tecnologia Industrial"),
     ("op2_31",  "Operações Unitárias II: Elaborar estudos ambientais"),
@@ -250,7 +238,6 @@ ORDEM_QUESTOES = [
     ("ctrl_36", "Projetos: Gestão de empreendimentos"),
     ("proj_56", "Projetos: Gestão Industrial"),
     ("proj_57", "Projetos: Ética e Humanidades"),
-    # 5. Avançadas
     ("econ_37",  "Engenharia Econômica: Novos conceitos"),
     ("econ_38",  "Engenharia Econômica: Visão global"),
     ("gest_39",  "Gestão da Produção: Comprometimento"),
@@ -277,7 +264,6 @@ ORDEM_QUESTOES = [
     ("otim_60",  "Otimização: Modelos"),
     ("tcc_61",   "TCC: Comunicação"),
     ("tcc_62",   "TCC: Liderança"),
-    # 6. Reflexão – Geral
     ("q20_indiv","Capacidade de aprender rapidamente novos conceitos (Geral)")
 ]
 
@@ -285,7 +271,6 @@ ID_PARA_LABEL = {id_: f"Questão {i+1}" for i, (id_, _) in enumerate(ORDEM_QUEST
 ID_PARA_TEXTO = {id_: titulo for (id_, titulo) in ORDEM_QUESTOES}
 
 def dataframe_ordenado_para_visual(df: pd.DataFrame):
-    """Retorna df numérico com colunas renomeadas para “Questão X” e em ordem natural + mapa (Questão X → texto completo)."""
     ids_presentes = [id_ for id_, _ in ORDEM_QUESTOES if id_ in df.columns]
     if not ids_presentes:
         return pd.DataFrame(), []
@@ -322,7 +307,7 @@ with st.sidebar:
             st.error("O sistema **BLOQUEIA** o salvamento se a Reflexão Final estiver vazia (use **EM BRANCO** / **NÃO RESPONDEU**).")
 
 # ==============================================================================
-# 8) NOVA TRANSCRIÇÃO (sem forms; botões com callback)
+# 8) NOVA TRANSCRIÇÃO
 # ==============================================================================
 if modo_operacao == "📝 Nova Transcrição":
     secao_ativa = st.radio("Etapas:", SECOES, horizontal=True, key="nav_etapa", label_visibility="collapsed")
@@ -334,44 +319,29 @@ if modo_operacao == "📝 Nova Transcrição":
         st.button("SALVAR RASCUNHO E AVANÇAR ➡️", on_click=navegar_proxima, key=key)
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # 1. Gerais (0..7)
     if secao_ativa == SECOES[0]:
         st.markdown("### 1. COMPETÊNCIAS TÉCNICAS E GERAIS")
-        for id_, titulo in ORDEM_QUESTOES[:8]:
-            stt = f"{ID_PARA_LABEL[id_]} — {titulo}"
-            renderizar_pergunta(stt, id_, key_suffix=k_suffix)
+        for id_, titulo in ORDEM_QUESTOES[:8]: renderizar_pergunta(f"{ID_PARA_LABEL[id_]} — {titulo}", id_, key_suffix=k_suffix)
         st.markdown("---"); bloco_avancar("btn_nav1")
 
-    # 2. Específicas (8..18)
     elif secao_ativa == SECOES[1]:
         st.markdown("### 2. COMPETÊNCIAS ESPECÍFICAS")
-        for id_, titulo in ORDEM_QUESTOES[8:19]:
-            stt = f"{ID_PARA_LABEL[id_]} — {titulo}"
-            renderizar_pergunta(stt, id_, key_suffix=k_suffix)
+        for id_, titulo in ORDEM_QUESTOES[8:19]: renderizar_pergunta(f"{ID_PARA_LABEL[id_]} — {titulo}", id_, key_suffix=k_suffix)
         st.markdown("---"); bloco_avancar("btn_nav2")
 
-    # 3. Básicas (19..30)
     elif secao_ativa == SECOES[2]:
         st.markdown("### 3. DISCIPLINAS BÁSICAS")
-        for id_, titulo in ORDEM_QUESTOES[19:31]:
-            stt = f"{ID_PARA_LABEL[id_]} — {titulo}"
-            renderizar_pergunta(stt, id_, key_suffix=k_suffix)
+        for id_, titulo in ORDEM_QUESTOES[19:31]: renderizar_pergunta(f"{ID_PARA_LABEL[id_]} — {titulo}", id_, key_suffix=k_suffix)
         st.markdown("---"); bloco_avancar("btn_nav3")
 
-    # 4. Profissionais (31..40)
     elif secao_ativa == SECOES[3]:
         st.markdown("### 4. DISCIPLINAS PROFISSIONALIZANTES")
-        for id_, titulo in ORDEM_QUESTOES[31:41]:
-            stt = f"{ID_PARA_LABEL[id_]} — {titulo}"
-            renderizar_pergunta(stt, id_, key_suffix=k_suffix)
+        for id_, titulo in ORDEM_QUESTOES[31:41]: renderizar_pergunta(f"{ID_PARA_LABEL[id_]} — {titulo}", id_, key_suffix=k_suffix)
         st.markdown("---"); bloco_avancar("btn_nav4")
 
-    # 5. Avançadas (41..-2)  |  6. Reflexão (última)
     elif secao_ativa == SECOES[4]:
         st.markdown("### 5. DISCIPLINAS AVANÇADAS")
-        for id_, titulo in ORDEM_QUESTOES[41:-1]:  # até antes da questão de reflexão geral
-            stt = f"{ID_PARA_LABEL[id_]} — {titulo}"
-            renderizar_pergunta(stt, id_, key_suffix=k_suffix)
+        for id_, titulo in ORDEM_QUESTOES[41:-1]: renderizar_pergunta(f"{ID_PARA_LABEL[id_]} — {titulo}", id_, key_suffix=k_suffix)
         st.markdown("---"); bloco_avancar("btn_nav5")
 
     elif secao_ativa == SECOES[5]:
@@ -408,7 +378,6 @@ if modo_operacao == "📝 Nova Transcrição":
                 "Plano de Desenvolvimento": (txt_fut2 or "").strip(),
                 "Observações Finais": (txt_final or "").strip(),
             }
-            # coleta notas e observações por item
             for k, v in st.session_state.items():
                 if k.endswith(k_suffix):
                     if k.startswith("nota_"):
@@ -429,40 +398,25 @@ if modo_operacao == "📝 Nova Transcrição":
                 st.error(f"❌ IMPOSSÍVEL SALVAR: {', '.join(erros)}")
             else:
                 try:
-                    df_new = pd.DataFrame([dados_salvar])
-                    df_antigo = ler_csv_seguro(ARQUIVO_DB)
-                    if df_antigo.empty: df_final = df_new
-                    else:
-                        if 'Data_Registro' not in df_antigo.columns:
-                            df_antigo['Data_Registro'] = obter_hora_ceara()
-                        df_final = pd.concat([df_antigo, df_new], ignore_index=True)
-                    escrever_csv_atomico(df_final, ARQUIVO_DB, encoding=CSV_ENCODING)
-                    st.balloons(); st.success(f"✅ Transcrição de {dados_salvar['Nome']} salva com sucesso!")
+                    conn.table("respostas_sac").insert(dados_salvar).execute()
+                    st.balloons(); st.success(f"✅ Transcrição de {dados_salvar['Nome']} salva com sucesso no banco de dados!")
                     limpar_formulario(); st.rerun()
-                except PermissionError:
-                    st.error("❌ ERRO: Feche o CSV/Excel aberto.")
                 except Exception as e:
-                    st.error(f"❌ ERRO: {e}")
+                    st.error(f"❌ ERRO ao salvar no banco: {e}")
         st.markdown('</div>', unsafe_allow_html=True)
     salvar_estado()
 
 # ==============================================================================
-# 9) EDIÇÃO DE REGISTRO (sem forms; checkboxes exclusivos)
+# 9) EDIÇÃO DE REGISTRO
 # ==============================================================================
 elif modo_operacao == "✏️ Editar Registro":
     st.markdown("### ✏️ MODO DE EDIÇÃO")
-    st.markdown("<div class='edit-warning'>⚠️ Atenção: Alterações sobrescrevem permanentemente o registro.</div>", unsafe_allow_html=True)
+    st.markdown("<div class='edit-warning'>⚠️ Atenção: Alterações sobrescrevem permanentemente o registro no banco.</div>", unsafe_allow_html=True)
 
-    df = ler_csv_seguro(ARQUIVO_DB)
+    df = ler_banco()
     if df.empty:
         st.warning("Banco de dados vazio.")
     else:
-        # Garante Registro_ID
-        if "Registro_ID" not in df.columns:
-            df["Registro_ID"] = [str(uuid.uuid4()) for _ in range(len(df))]
-            escrever_csv_atomico(df, ARQUIVO_DB, encoding=CSV_ENCODING)
-
-        # Busca / filtro
         col1, col2 = st.columns([0.5, 0.5])
         termo = col1.text_input("🔎 Buscar por Nome/Matrícula (contém):")
         sems_db = sorted([s for s in df.get('Semestre', pd.Series(dtype=str)).dropna().unique()])
@@ -480,94 +434,107 @@ elif modo_operacao == "✏️ Editar Registro":
             opcoes = df_f.apply(lambda x: f"{x.get('Registro_ID','')} • {x.get('Nome','')} ({x.get('Matricula','')})", axis=1).tolist()
             sel = st.selectbox("Selecione o registro para corrigir:", opcoes)
             sel_id = sel.split(" • ")[0].strip()
-            idx_series = df.index[df['Registro_ID'] == sel_id]
-            if len(idx_series) == 0:
-                st.error("Registro não encontrado.")
+            
+            dados = df[df['Registro_ID'] == sel_id].iloc[0]
+
+            st.subheader("1) Dados Cadastrais")
+            c1, c2 = st.columns(2)
+            new_nome = c1.text_input("Nome", value=dados.get("Nome", ""))
+            new_mat  = c2.text_input("Matrícula", value=dados.get("Matricula", ""))
+            val_sem  = dados.get("Semestre", "")
+            idx_sem  = LISTA_SEMESTRES.index(val_sem) if val_sem in LISTA_SEMESTRES else 0
+            new_sem  = c1.selectbox("Semestre", LISTA_SEMESTRES, index=idx_sem)
+            val_curr = dados.get("Curriculo", "")
+            idx_curr = LISTA_CURRICULOS.index(val_curr) if val_curr in LISTA_CURRICULOS else 0
+            new_curr = c2.radio("Currículo", LISTA_CURRICULOS, index=idx_curr)
+            val_pet  = dados.get("Petiano_Responsavel", "")
+            idx_pet  = LISTA_PETIANOS.index(val_pet) if val_pet in LISTA_PETIANOS else 0
+            new_pet  = st.selectbox("Responsável pela Transcrição", LISTA_PETIANOS, index=idx_pet)
+
+            st.markdown("---")
+            st.subheader("2) Corrigir Nota de uma Questão")
+            cols_notas_existentes = [id_ for id_, _ in ORDEM_QUESTOES if id_ in df.columns]
+            labels_disp = [ID_PARA_LABEL[id_] for id_ in cols_notas_existentes]
+            escolha_label = st.selectbox("Questão:", labels_disp)
+            col_edit = cols_notas_existentes[labels_disp.index(escolha_label)]
+
+            edit_labels = NOTA_LABELS
+            k_edit = "_edit"
+            nota_edit_key = f"nota_edit{k_edit}"
+            valor_atual = dados.get(col_edit, "N/A")
+            if nota_edit_key not in st.session_state or st.session_state[nota_edit_key] not in edit_labels:
+                st.session_state[nota_edit_key] = valor_atual if valor_atual in edit_labels else "N/A"
+            sel_edit = st.session_state[nota_edit_key]
+            
+            for lab in edit_labels:
+                cb_key = f"cb_edit_{lab}{k_edit}"
+                if cb_key not in st.session_state:
+                    st.session_state[cb_key] = (lab == sel_edit)
+            cols_e = st.columns(len(edit_labels))
+            for i, lab in enumerate(edit_labels):
+                cb_key = f"cb_edit_{lab}{k_edit}"
+                def _cb_edit_change(label_clicked=lab):
+                    cur = st.session_state.get(cb_key, False)
+                    if cur:
+                        st.session_state[nota_edit_key] = label_clicked
+                        for L in edit_labels:
+                            st.session_state[f"cb_edit_{L}{k_edit}"] = (L == label_clicked)
+                    else:
+                        current_sel = st.session_state.get(nota_edit_key, "N/A")
+                        for L in edit_labels:
+                            st.session_state[f"cb_edit_{L}{k_edit}"] = (L == current_sel)
+                cols_e[i].checkbox(lab, value=st.session_state.get(cb_key, lab == sel_edit), key=cb_key, on_change=_cb_edit_change)
+
+            st.markdown("---")
+            editar_obs = st.checkbox("Editar observações abertas (opcional)")
+            if editar_obs:
+                st.subheader("3) Observações/Abertas")
+                new_fortes = st.text_area("Pontos Fortes", value=dados.get("Autoavaliação: Pontos Fortes", ""))
+                new_fracos = st.text_area("Pontos a Desenvolver", value=dados.get("Autoavaliação: Pontos a Desenvolver", ""))
+                new_prat   = st.text_area("Contribuição Prática", value=dados.get("Contribuição Prática", ""))
+                new_ex     = st.text_area("Exemplos de Aplicação", value=dados.get("Exemplos de Aplicação", ""))
+                new_fut1   = st.text_area("Competências Futuras", value=dados.get("Competências Futuras", ""))
+                new_fut2   = st.text_area("Plano de Desenvolvimento", value=dados.get("Plano de Desenvolvimento", ""))
+                new_final  = st.text_area("Comentários Finais", value=dados.get("Observações Finais", ""))
             else:
-                idx = idx_series[0]
-                dados = df.iloc[idx]
+                new_fortes = dados.get("Autoavaliação: Pontos Fortes", "")
+                new_fracos = dados.get("Autoavaliação: Pontos a Desenvolver", "")
+                new_prat   = dados.get("Contribuição Prática", "")
+                new_ex     = dados.get("Exemplos de Aplicação", "")
+                new_fut1   = dados.get("Competências Futuras", "")
+                new_fut2   = dados.get("Plano de Desenvolvimento", "")
+                new_final  = dados.get("Observações Finais", "")
 
-                # Cadastrais
-                st.subheader("1) Dados Cadastrais")
-                c1, c2 = st.columns(2)
-                new_nome = c1.text_input("Nome", value=dados.get("Nome", ""))
-                new_mat  = c2.text_input("Matrícula", value=dados.get("Matricula", ""))
-                val_sem  = dados.get("Semestre", "")
-                idx_sem  = LISTA_SEMESTRES.index(val_sem) if val_sem in LISTA_SEMESTRES else 0
-                new_sem  = c1.selectbox("Semestre", LISTA_SEMESTRES, index=idx_sem)
-                val_curr = dados.get("Curriculo", "")
-                idx_curr = LISTA_CURRICULOS.index(val_curr) if val_curr in LISTA_CURRICULOS else 0
-                new_curr = c2.radio("Currículo", LISTA_CURRICULOS, index=idx_curr)
-                val_pet  = dados.get("Petiano_Responsavel", "")
-                idx_pet  = LISTA_PETIANOS.index(val_pet) if val_pet in LISTA_PETIANOS else 0
-                new_pet  = st.selectbox("Responsável pela Transcrição", LISTA_PETIANOS, index=idx_pet)
-
-                st.markdown("---")
-                st.subheader("2) Corrigir Nota de uma Questão")
-                cols_notas_existentes = [id_ for id_, _ in ORDEM_QUESTOES if id_ in df.columns]
-                labels_disp = [ID_PARA_LABEL[id_] for id_ in cols_notas_existentes]
-                escolha_label = st.selectbox("Questão:", labels_disp)
-                col_edit = cols_notas_existentes[labels_disp.index(escolha_label)]
-
-                # Checkboxes exclusivos para nova nota
-                edit_labels = NOTA_LABELS
-                k_edit = "_edit"
-                nota_edit_key = f"nota_edit{k_edit}"
-                valor_atual = dados.get(col_edit, "N/A")
-                if nota_edit_key not in st.session_state or st.session_state[nota_edit_key] not in edit_labels:
-                    st.session_state[nota_edit_key] = valor_atual if valor_atual in edit_labels else "N/A"
-                sel_edit = st.session_state[nota_edit_key]
-                for lab in edit_labels:
-                    cb_key = f"cb_edit_{lab}{k_edit}"
-                    if cb_key not in st.session_state:
-                        st.session_state[cb_key] = (lab == sel_edit)
-                cols_e = st.columns(len(edit_labels))
-                for i, lab in enumerate(edit_labels):
-                    cb_key = f"cb_edit_{lab}{k_edit}"
-                    def _cb_edit_change(label_clicked=lab):
-                        cur = st.session_state.get(cb_key, False)
-                        if cur:
-                            st.session_state[nota_edit_key] = label_clicked
-                            for L in edit_labels:
-                                st.session_state[f"cb_edit_{L}{k_edit}"] = (L == label_clicked)
-                        else:
-                            current_sel = st.session_state.get(nota_edit_key, "N/A")
-                            for L in edit_labels:
-                                st.session_state[f"cb_edit_{L}{k_edit}"] = (L == current_sel)
-                    cols_e[i].checkbox(lab, value=st.session_state.get(cb_key, lab == sel_edit), key=cb_key, on_change=_cb_edit_change, help="Selecione apenas uma opção.")
-
-                st.markdown("---")
-                editar_obs = st.checkbox("Editar observações abertas (opcional)")
-                if editar_obs:
-                    st.subheader("3) Observações/Abertas")
-                    new_fortes = st.text_area("Pontos Fortes", value=dados.get("Autoavaliação: Pontos Fortes", ""))
-                    new_fracos = st.text_area("Pontos a Desenvolver", value=dados.get("Autoavaliação: Pontos a Desenvolver", ""))
-                    new_final  = st.text_area("Comentários Finais", value=dados.get("Observações Finais", ""))
-                else:
-                    new_fortes = dados.get("Autoavaliação: Pontos Fortes", "")
-                    new_fracos = dados.get("Autoavaliação: Pontos a Desenvolver", "")
-                    new_final  = dados.get("Observações Finais", "")
-
-                st.markdown("---")
-                if st.button("💾 SALVAR ALTERAÇÕES"):
-                    df.at[idx, "Nome"] = new_nome
-                    df.at[idx, "Matricula"] = new_mat
-                    df.at[idx, "Semestre"] = new_sem
-                    df.at[idx, "Curriculo"] = new_curr
-                    df.at[idx, "Petiano_Responsavel"] = new_pet
-                    df.at[idx, col_edit] = st.session_state.get(nota_edit_key, "N/A")
-                    df.at[idx, "Autoavaliação: Pontos Fortes"] = new_fortes
-                    df.at[idx, "Autoavaliação: Pontos a Desenvolver"] = new_fracos
-                    df.at[idx, "Observações Finais"] = new_final
-                    escrever_csv_atomico(df, ARQUIVO_DB, encoding=CSV_ENCODING)
-                    st.success("Registro atualizado com sucesso!"); st.rerun()
+            st.markdown("---")
+            if st.button("💾 SALVAR ALTERAÇÕES"):
+                novos_dados = {
+                    "Nome": new_nome,
+                    "Matricula": new_mat,
+                    "Semestre": new_sem,
+                    "Curriculo": new_curr,
+                    "Petiano_Responsavel": new_pet,
+                    col_edit: st.session_state.get(nota_edit_key, "N/A"),
+                    "Autoavaliação: Pontos Fortes": new_fortes,
+                    "Autoavaliação: Pontos a Desenvolver": new_fracos,
+                    "Contribuição Prática": new_prat,
+                    "Exemplos de Aplicação": new_ex,
+                    "Competências Futuras": new_fut1,
+                    "Plano de Desenvolvimento": new_fut2,
+                    "Observações Finais": new_final
+                }
+                try:
+                    conn.table("respostas_sac").update(novos_dados).eq("Registro_ID", sel_id).execute()
+                    st.success("Registro atualizado com sucesso no banco de dados!")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Erro ao atualizar: {e}")
 
 # ==============================================================================
-# 10) PAINEL GERENCIAL (rótulos “Questão X” + ordem + hover texto completo)
+# 10) PAINEL GERENCIAL
 # ==============================================================================
 elif modo_operacao == "📊 Painel Gerencial":
     st.markdown("### 📊 INDICADORES DE DESEMPENHO")
-    df = ler_csv_seguro(ARQUIVO_DB)
+    df = ler_banco()
     if df.empty:
         st.info("Nenhum dado.")
     else:
@@ -575,7 +542,7 @@ elif modo_operacao == "📊 Painel Gerencial":
         filtro_sem = st.sidebar.selectbox("Filtrar por Semestre:", ["Todos"] + sems_db)
         if filtro_sem != "Todos": df = df[df['Semestre'] == filtro_sem]
 
-        df_nums, mapa = dataframe_ordenado_para_visual(df)  # respostas em ordem com “Questão X”
+        df_nums, mapa = dataframe_ordenado_para_visual(df)
         st.markdown("#### 📍 Resumo")
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("Formulários", len(df))
@@ -617,8 +584,6 @@ elif modo_operacao == "📊 Painel Gerencial":
             )
             fig.update_traces(texttemplate='%{text:.2f}', textposition='outside')
             st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.info("Sem colunas de nota numéricas para calcular médias.")
 
         st.markdown("---")
         st.markdown("#### 📋 Tabela (respostas em ordem)")
@@ -632,7 +597,7 @@ elif modo_operacao == "📊 Painel Gerencial":
             if nome_q: df_view = df_view[df_view['Nome'].str.contains(nome_q, case=False, na=False)]
             if mat_q:  df_view = df_view[df_view['Matricula'].str.contains(mat_q, case=False, na=False)]
             st.dataframe(df_view, use_container_width=True, height=520)
-            csv_bytes = df_view.to_csv(index=False, encoding=CSV_ENCODING).encode(CSV_ENCODING)
-            st.download_button("📥 Baixar CSV (visualização)", csv_bytes, file_name=f"sac_visual_{datetime.now().strftime('%Y%m%d')}.csv", mime="text/csv")
-        else:
-            st.info("Sem dados numéricos para a tabela de respostas.")
+            
+            # Exportar CSV apenas com dados de visualização
+            csv_bytes = df_view.to_csv(index=False, encoding="utf-8-sig").encode("utf-8-sig")
+            st.download_button("📥 Baixar CSV (visualização)", csv_bytes, file_name=f"sac_banco_visual_{datetime.now().strftime('%Y%m%d')}.csv", mime="text/csv")
