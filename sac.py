@@ -25,7 +25,7 @@ conn = st.connection("supabase", type=SupabaseConnection)
 ARQUIVO_BACKUP = "_backup_autosave.json"
 
 # ==============================================================================
-# 2) ESTILO
+# 2) ESTILO PREMIUM (CSS ATUALIZADO)
 # ==============================================================================
 st.markdown("""
 <style>
@@ -37,26 +37,40 @@ h1, h2, h3, h4 {
     text-transform: uppercase;
     letter-spacing: 0.05em;
 }
+/* Estilo escuro (Dark Mode) */
 @media (prefers-color-scheme: dark) {
     h1, h2, h3, h4 { color: #82b1ff !important; }
-    .pergunta-card { background-color: #1e1e1e !important; border-left: 5px solid #82b1ff !important; border: 1px solid #333 !important; }
-    .manual-box { background-color: #262730 !important; border: 1px solid #444 !important; }
+    .pergunta-card { 
+        background-color: #1e1e1e !important; 
+        border-radius: 12px; padding: 24px; margin-bottom: 24px; 
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2); 
+        border-left: 6px solid #82b1ff !important; 
+        border: 1px solid #333; 
+    }
     .edit-warning { background-color: #3e2723 !important; color: #ffcc80 !important; border: 1px solid #ffab91 !important; }
 }
+/* Estilo claro (Light Mode) - Novo Design Corporativo */
 @media (prefers-color-scheme: light) {
-    .stApp { background-color: #ffffff !important; }
-    .pergunta-card { background-color: #fcfcfc !important; border-left: 5px solid #002060 !important; border: 1px solid #e0e0e0 !important; }
-    .manual-box { background-color: #f0f2f6 !important; border: 1px solid #ddd !important; }
+    .stApp { background-color: transparent !important; }
+    .pergunta-card { 
+        background-color: #ffffff !important; 
+        border-radius: 12px; 
+        padding: 24px; 
+        margin-bottom: 24px; 
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); 
+        border-left: 6px solid #002060 !important; 
+        border-top: 1px solid #edf2f7 !important; 
+        border-right: 1px solid #edf2f7 !important; 
+        border-bottom: 1px solid #edf2f7 !important; 
+    }
     .edit-warning { background-color: #fff3e0 !important; color: #e65100 !important; border: 1px solid #ffe0b2 !important; }
 }
-.pergunta-card { border-radius: 8px; padding: 20px; margin-bottom: 25px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
 .pergunta-texto { font-size: 1.1rem; font-weight: 700; margin-bottom: 15px; opacity: 0.95; }
 .stButton button { border-radius: 6px; font-weight: 700; text-transform: uppercase; height: 3.5em; width: 100%; transition: all 0.3s ease; }
 .botao-avancar button { background-color: transparent; border: 2px solid #002060; color: #002060; }
 .botao-avancar button:hover { background-color: #002060; color: white; transform: translateX(5px); }
 .botao-final button { background-color: #002060 !important; color: white !important; border: none; height: 4.5em; font-size: 1.1rem; }
 .botao-final button:hover { background-color: #003399 !important; transform: scale(1.02); }
-.manual-box { padding: 15px; border-radius: 8px; margin-bottom: 15px; }
 .edit-warning { padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: center; font-weight: bold; }
 #MainMenu{visibility:hidden} footer{visibility:hidden}
 </style>
@@ -89,7 +103,6 @@ def ler_banco():
         st.error(f"Erro ao ligar ao banco de dados: {e}")
         return pd.DataFrame()
 
-# Estado inicial seguro
 if "nav_etapa" not in st.session_state:
     st.session_state["nav_etapa"] = SECOES[0]
 if 'form_key' not in st.session_state:
@@ -282,29 +295,33 @@ def dataframe_ordenado_para_visual(df: pd.DataFrame):
     return df_nums, mapa
 
 # ==============================================================================
-# 7) BARRA LATERAL
+# 7) BARRA LATERAL (COM EXPANDER PARA O MANUAL)
 # ==============================================================================
 with st.sidebar:
     st.markdown("### ⚙️ MODO DE OPERAÇÃO")
     modo_operacao = st.radio("Selecione:", ["📝 Nova Transcrição", "✏️ Editar Registro", "📊 Painel Gerencial"], label_visibility="collapsed")
     st.markdown("---")
+    
     if modo_operacao == "📝 Nova Transcrição":
-        tab_id, tab_manual = st.tabs(["👤 Identificação", "📘 Manual"])
-        with tab_id:
-            st.info("Preencha conforme o papel.")
-            k_sfx = f"_{st.session_state.form_key}"
-            st.selectbox("Responsável", LISTA_PETIANOS, key=f"ident_pet{k_sfx}")
-            st.text_input("Nome do Discente", key=f"ident_nome{k_sfx}")
-            st.text_input("Matrícula", key=f"ident_mat{k_sfx}")
-            st.selectbox("Semestre", LISTA_SEMESTRES, key=f"ident_sem{k_sfx}")
-            st.radio("Matriz", LISTA_CURRICULOS, key=f"ident_curr{k_sfx}")
-            if st.button("🗑️ Limpar Formulário"): limpar_formulario(); st.rerun()
-        with tab_manual:
-            st.markdown("### 📘 PROCEDIMENTOS PADRÃO")
+        st.markdown("#### 👤 Identificação")
+        st.info("Preencha conforme o papel.")
+        k_sfx = f"_{st.session_state.form_key}"
+        st.selectbox("Responsável", LISTA_PETIANOS, key=f"ident_pet{k_sfx}")
+        st.text_input("Nome do Discente", key=f"ident_nome{k_sfx}")
+        st.text_input("Matrícula", key=f"ident_mat{k_sfx}")
+        st.selectbox("Semestre", LISTA_SEMESTRES, key=f"ident_sem{k_sfx}")
+        st.radio("Matriz", LISTA_CURRICULOS, key=f"ident_curr{k_sfx}")
+        
+        if st.button("Limpar Formulário", icon=":material/delete:"): 
+            limpar_formulario()
+            st.rerun()
+            
+        st.markdown("<br>", unsafe_allow_html=True)
+        with st.expander("📘 Ver Manual de Procedimentos", expanded=False):
             st.caption("A fidelidade aos dados é a prioridade absoluta.")
             st.markdown("* **Não altere erros:** Transcreva exatamente o que vê (ipsis litteris).\n* **Letra Ilegível:** Digite `[ILEGÍVEL]`.")
             st.markdown("* **N/A (Não se Aplica):** Use quando vazio/rasura/duplicado.\n* **Nota:** N/A não entra na média.")
-            st.error("O sistema **BLOQUEIA** o salvamento se a Reflexão Final estiver vazia (use **EM BRANCO** / **NÃO RESPONDEU**).")
+            st.error("O sistema **BLOQUEIA** o salvamento se a Reflexão Final estiver vazia (use **EM BRANCO**).")
 
 # ==============================================================================
 # 8) NOVA TRANSCRIÇÃO
@@ -316,7 +333,7 @@ if modo_operacao == "📝 Nova Transcrição":
 
     def bloco_avancar(key):
         st.markdown('<div class="botao-avancar">', unsafe_allow_html=True)
-        st.button("SALVAR RASCUNHO E AVANÇAR ➡️", on_click=navegar_proxima, key=key)
+        st.button("SALVAR RASCUNHO E AVANÇAR", icon=":material/arrow_forward:", on_click=navegar_proxima, key=key)
         st.markdown('</div>', unsafe_allow_html=True)
 
     if secao_ativa == SECOES[0]:
@@ -361,7 +378,7 @@ if modo_operacao == "📝 Nova Transcrição":
 
         st.markdown("---")
         st.markdown('<div class="botao-final">', unsafe_allow_html=True)
-        if st.button("💾 FINALIZAR E SALVAR REGISTRO", type="primary"):
+        if st.button("FINALIZAR E SALVAR REGISTRO", type="primary", icon=":material/save:"):
             dados_salvar = {
                 "Registro_ID": str(uuid.uuid4()),
                 "Petiano_Responsavel": st.session_state.get(f"ident_pet{k_suffix}", ""),
@@ -506,7 +523,7 @@ elif modo_operacao == "✏️ Editar Registro":
                 new_final  = dados.get("Observações Finais", "")
 
             st.markdown("---")
-            if st.button("💾 SALVAR ALTERAÇÕES"):
+            if st.button("SALVAR ALTERAÇÕES", icon=":material/update:"):
                 novos_dados = {
                     "Nome": new_nome,
                     "Matricula": new_mat,
@@ -598,6 +615,5 @@ elif modo_operacao == "📊 Painel Gerencial":
             if mat_q:  df_view = df_view[df_view['Matricula'].str.contains(mat_q, case=False, na=False)]
             st.dataframe(df_view, use_container_width=True, height=520)
             
-            # Exportar CSV apenas com dados de visualização
             csv_bytes = df_view.to_csv(index=False, encoding="utf-8-sig").encode("utf-8-sig")
-            st.download_button("📥 Baixar CSV (visualização)", csv_bytes, file_name=f"sac_banco_visual_{datetime.now().strftime('%Y%m%d')}.csv", mime="text/csv")
+            st.download_button("Baixar CSV (visualização)", csv_bytes, file_name=f"sac_banco_visual_{datetime.now().strftime('%Y%m%d')}.csv", mime="text/csv", icon=":material/download:")
