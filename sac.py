@@ -25,7 +25,7 @@ conn = st.connection("supabase", type=SupabaseConnection)
 ARQUIVO_BACKUP = "_backup_autosave.json"
 
 # ==============================================================================
-# 2) ESTILO PREMIUM (CSS CORRIGIDO)
+# 2) ESTILO PREMIUM (CSS CORRIGIDO PARA VISUAL CLARO FIXO)
 # ==============================================================================
 st.markdown("""
 <style>
@@ -39,7 +39,7 @@ h1, h2, h3, h4 {
     letter-spacing: 0.05em;
 }
 
-/* Cartão da Pergunta - Visual Limpo e Fixo */
+/* Cartão da Pergunta - Visual Limpo e Fixo independentemente do tema do SO */
 .pergunta-card {
     background-color: #ffffff !important;
     border-radius: 8px;
@@ -57,7 +57,7 @@ h1, h2, h3, h4 {
     font-size: 1.1rem;
     font-weight: 700;
     margin: 0;
-    color: #1e1e1e !important; /* Força o texto a aparecer escuro e legível */
+    color: #1e1e1e !important;
     opacity: 0.95;
 }
 
@@ -106,27 +106,34 @@ LISTA_CURRICULOS = ["Novo (2023.1)", "Antigo (2005.1)", "Troca de Matriz (Velha 
 
 def ler_banco():
     try:
-        # Usando a sintaxe nativa .table().select()
         response = conn.table("respostas_sac").select("*").execute()
         return pd.DataFrame(response.data)
     except Exception as e:
         st.error(f"Erro ao ligar ao banco de dados: {e}")
         return pd.DataFrame()
 
+# INICIALIZAÇÃO SEGURA DO SESSION STATE
+if "nav_etapa" not in st.session_state:
+    st.session_state["nav_etapa"] = SECOES[0]
+if "form_key" not in st.session_state:
+    st.session_state["form_key"] = 0
+
 def carregar_backup():
     if os.path.exists(ARQUIVO_BACKUP):
         try:
             with open(ARQUIVO_BACKUP, "r", encoding='utf-8') as f:
                 dados = json.load(f)
+                # Uso seguro do form_key com .get()
+                chave_atual = f"_{st.session_state.get('form_key', 0)}"
                 for k, v in dados.items():
-                    if k.endswith(f"_{st.session_state.form_key}"):
+                    if k.endswith(chave_atual):
                         st.session_state[k] = v
         except Exception:
             pass
 
 if 'backup_restaurado' not in st.session_state:
     carregar_backup()
-    st.session_state.backup_restaurado = True
+    st.session_state["backup_restaurado"] = True
 
 def salvar_estado():
     try:
@@ -147,7 +154,8 @@ def navegar_proxima():
         pass
 
 def limpar_formulario():
-    st.session_state.form_key += 1
+    # Incremento seguro do form_key
+    st.session_state["form_key"] += 1
     st.session_state["nav_etapa"] = SECOES[0]
     if os.path.exists(ARQUIVO_BACKUP):
         try: os.remove(ARQUIVO_BACKUP)
@@ -176,7 +184,8 @@ def _on_checkbox_change(grupo_id: str, label_clicked: str, labels: list, k_suffi
             st.session_state[f"cb_{grupo_id}_{lab}{k_suffix}"] = (lab == sel)
 
 def renderizar_pergunta(texto_pergunta, id_unica, valor_padrao="N/A", obs_padrao="", key_suffix=""):
-    k = key_suffix if key_suffix else f"_{st.session_state.form_key}"
+    # Resgate seguro do form_key com fallback para 0
+    k = key_suffix if key_suffix else f"_{st.session_state.get('form_key', 0)}"
     labels = NOTA_LABELS
 
     nota_key = f"nota_{id_unica}{k}"
@@ -300,7 +309,7 @@ def dataframe_ordenado_para_visual(df: pd.DataFrame):
     return df_nums, mapa
 
 # ==============================================================================
-# 7) BARRA LATERAL (COM EXPANDER PARA O MANUAL)
+# 7) BARRA LATERAL
 # ==============================================================================
 with st.sidebar:
     st.markdown("### ⚙️ MODO DE OPERAÇÃO")
@@ -310,7 +319,10 @@ with st.sidebar:
     if modo_operacao == "📝 Nova Transcrição":
         st.markdown("#### 👤 Identificação")
         st.info("Preencha conforme o papel.")
-        k_sfx = f"_{st.session_state.form_key}"
+        
+        # Resgate seguro
+        k_sfx = f"_{st.session_state.get('form_key', 0)}"
+        
         st.selectbox("Responsável", LISTA_PETIANOS, key=f"ident_pet{k_sfx}")
         st.text_input("Nome do Discente", key=f"ident_nome{k_sfx}")
         st.text_input("Matrícula", key=f"ident_mat{k_sfx}")
@@ -334,7 +346,9 @@ with st.sidebar:
 if modo_operacao == "📝 Nova Transcrição":
     secao_ativa = st.radio("Etapas:", SECOES, horizontal=True, key="nav_etapa", label_visibility="collapsed")
     st.markdown("---")
-    k_suffix = f"_{st.session_state.form_key}"
+    
+    # Resgate seguro
+    k_suffix = f"_{st.session_state.get('form_key', 0)}"
 
     def bloco_avancar(key):
         st.markdown('<div class="botao-avancar">', unsafe_allow_html=True)
