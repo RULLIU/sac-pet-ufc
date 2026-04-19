@@ -25,53 +25,62 @@ conn = st.connection("supabase", type=SupabaseConnection)
 ARQUIVO_BACKUP = "_backup_autosave.json"
 
 # ==============================================================================
-# 2) ESTILO PREMIUM (CSS ATUALIZADO)
+# 2) ESTILO PREMIUM (CSS CORRIGIDO)
 # ==============================================================================
 st.markdown("""
 <style>
 :root { --primary-color: #002060; }
 .stApp { font-family: 'Segoe UI', 'Roboto', sans-serif; }
+
 h1, h2, h3, h4 {
     color: var(--primary-color) !important;
     font-weight: 800 !important;
     text-transform: uppercase;
     letter-spacing: 0.05em;
 }
-/* Estilo escuro (Dark Mode) */
-@media (prefers-color-scheme: dark) {
-    h1, h2, h3, h4 { color: #82b1ff !important; }
-    .pergunta-card { 
-        background-color: #1e1e1e !important; 
-        border-radius: 12px; padding: 24px; margin-bottom: 24px; 
-        box-shadow: 0 4px 12px rgba(0,0,0,0.2); 
-        border-left: 6px solid #82b1ff !important; 
-        border: 1px solid #333; 
-    }
-    .edit-warning { background-color: #3e2723 !important; color: #ffcc80 !important; border: 1px solid #ffab91 !important; }
+
+/* Cartão da Pergunta - Visual Limpo e Fixo */
+.pergunta-card {
+    background-color: #ffffff !important;
+    border-radius: 8px;
+    padding: 16px 24px;
+    margin-bottom: 16px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+    border-left: 6px solid #002060 !important;
+    border-top: 1px solid #edf2f7 !important;
+    border-right: 1px solid #edf2f7 !important;
+    border-bottom: 1px solid #edf2f7 !important;
 }
-/* Estilo claro (Light Mode) - Novo Design Corporativo */
-@media (prefers-color-scheme: light) {
-    .stApp { background-color: transparent !important; }
-    .pergunta-card { 
-        background-color: #ffffff !important; 
-        border-radius: 12px; 
-        padding: 24px; 
-        margin-bottom: 24px; 
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); 
-        border-left: 6px solid #002060 !important; 
-        border-top: 1px solid #edf2f7 !important; 
-        border-right: 1px solid #edf2f7 !important; 
-        border-bottom: 1px solid #edf2f7 !important; 
-    }
-    .edit-warning { background-color: #fff3e0 !important; color: #e65100 !important; border: 1px solid #ffe0b2 !important; }
+
+/* Texto da Pergunta */
+.pergunta-texto {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin: 0;
+    color: #1e1e1e !important; /* Força o texto a aparecer escuro e legível */
+    opacity: 0.95;
 }
-.pergunta-texto { font-size: 1.1rem; font-weight: 700; margin-bottom: 15px; opacity: 0.95; }
+
+/* Botões */
 .stButton button { border-radius: 6px; font-weight: 700; text-transform: uppercase; height: 3.5em; width: 100%; transition: all 0.3s ease; }
 .botao-avancar button { background-color: transparent; border: 2px solid #002060; color: #002060; }
 .botao-avancar button:hover { background-color: #002060; color: white; transform: translateX(5px); }
 .botao-final button { background-color: #002060 !important; color: white !important; border: none; height: 4.5em; font-size: 1.1rem; }
 .botao-final button:hover { background-color: #003399 !important; transform: scale(1.02); }
-.edit-warning { padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: center; font-weight: bold; }
+
+/* Avisos do Modo de Edição */
+.edit-warning { 
+    padding: 15px; 
+    border-radius: 8px; 
+    margin-bottom: 20px; 
+    text-align: center; 
+    font-weight: bold; 
+    background-color: #fff3e0 !important; 
+    color: #e65100 !important; 
+    border: 1px solid #ffe0b2 !important; 
+}
+
+/* Ocultar menus padrão do Streamlit */
 #MainMenu{visibility:hidden} footer{visibility:hidden}
 </style>
 """, unsafe_allow_html=True)
