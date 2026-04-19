@@ -106,16 +106,12 @@ LISTA_CURRICULOS = ["Novo (2023.1)", "Antigo (2005.1)", "Troca de Matriz (Velha 
 
 def ler_banco():
     try:
-        response = conn.query("*", table="respostas_sac", ttl=0).execute()
+        # Usando a sintaxe nativa .table().select()
+        response = conn.table("respostas_sac").select("*").execute()
         return pd.DataFrame(response.data)
     except Exception as e:
         st.error(f"Erro ao ligar ao banco de dados: {e}")
         return pd.DataFrame()
-
-if "nav_etapa" not in st.session_state:
-    st.session_state["nav_etapa"] = SECOES[0]
-if 'form_key' not in st.session_state:
-    st.session_state.form_key = 0
 
 def carregar_backup():
     if os.path.exists(ARQUIVO_BACKUP):
