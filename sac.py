@@ -344,7 +344,15 @@ with st.sidebar:
 # 8) NOVA TRANSCRIÇÃO
 # ==============================================================================
 if modo_operacao == "📝 Nova Transcrição":
-    secao_ativa = st.radio("Etapas:", SECOES, horizontal=True, key="nav_etapa", label_visibility="collapsed")
+    # 1. Pega a etapa atual salva na memória (ou a primeira, se estiver vazio)
+    idx_atual = SECOES.index(st.session_state.get("nav_etapa", SECOES[0]))
+    
+    # 2. Desenha o Radio usando 'index' em vez de 'key' (Isso destrava a variável!)
+    secao_ativa = st.radio("Etapas:", SECOES, index=idx_atual, horizontal=True, label_visibility="collapsed")
+    
+    # 3. Se o usuário clicar manualmente em outra aba, atualizamos a memória silenciosamente
+    st.session_state["nav_etapa"] = secao_ativa
+    
     st.markdown("---")
     
     # Resgate seguro
