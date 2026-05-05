@@ -88,7 +88,7 @@ with st.sidebar:
     menu_principal = st.radio("Ir para:", ["📊 Dashboard Público", "🔒 Área Restrita"], label_visibility="collapsed")
     st.markdown("---")
 
-## ==============================================================================
+# ==============================================================================
 # PÁGINA 1: DASHBOARD PÚBLICO (ANÁLISE ROBUSTA)
 # ==============================================================================
 if menu_principal == "📊 Dashboard Público":
