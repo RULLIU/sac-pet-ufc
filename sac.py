@@ -1,4 +1,4 @@
-# app.py
+# app.py / sac.py
 import uuid
 import time
 from datetime import datetime, timedelta, timezone
@@ -6,7 +6,7 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 
-# Importações dos módulos (Certifique-se de que config.py e database.py estão na mesma pasta)
+# Importações dos módulos 
 from config import SECOES, LISTA_PETIANOS, LISTA_SEMESTRES, LISTA_CURRICULOS, NOTA_LABELS, ORDEM_QUESTOES, ID_PARA_LABEL, ID_PARA_TEXTO
 from database import ler_banco_cacheados, inserir_registro, atualizar_registro
 
@@ -47,7 +47,7 @@ if "fase_transcricao" not in st.session_state:
     st.session_state.fase_transcricao = "configuracao"
 
 # ==============================================================================
-# BARRA LATERAL (Agora apenas com a navegação dos módulos)
+# BARRA LATERAL 
 # ==============================================================================
 with st.sidebar:
     st.markdown("### ⚙️ MÓDULOS")
@@ -56,7 +56,7 @@ with st.sidebar:
     st.caption("A navegação global é feita por aqui. Para limpar dados, utilize os botões na tela principal.")
 
 # ==============================================================================
-# 1) NOVA TRANSCRIÇÃO (Fluxo Dividido: Identificação -> Loading -> Perguntas)
+# 1) NOVA TRANSCRIÇÃO 
 # ==============================================================================
 if modo_operacao == "📝 Nova Transcrição":
     
@@ -67,36 +67,49 @@ if modo_operacao == "📝 Nova Transcrição":
         
         c1, c2 = st.columns(2)
         with c1:
-            nome_disc = st.text_input("Nome Completo do Discente", key="ident_nome")
-            mat_disc = st.text_input("Matrícula", key="ident_mat")
-            sem_disc = st.selectbox("Semestre Vigente", LISTA_SEMESTRES, key="ident_sem")
+            nome_disc = st.text_input("Nome Completo do Discente", key="ident_nome", value=st.session_state.get("p_nome", ""))
+            mat_disc = st.text_input("Matrícula", key="ident_mat", value=st.session_state.get("p_mat", ""))
+            
+            # Recupera o índice correto se já houver algo salvo
+            idx_sem = LISTA_SEMESTRES.index(st.session_state.get("p_sem", LISTA_SEMESTRES[0])) if st.session_state.get("p_sem") in LISTA_SEMESTRES else 0
+            sem_disc = st.selectbox("Semestre Vigente", LISTA_SEMESTRES, key="ident_sem", index=idx_sem)
+            
         with c2:
-            petiano = st.selectbox("Petiano Responsável pela Transcrição", LISTA_PETIANOS, key="ident_pet")
-            curr_disc = st.radio("Matriz Curricular", LISTA_CURRICULOS, key="ident_curr")
+            idx_pet = LISTA_PETIANOS.index(st.session_state.get("p_pet", LISTA_PETIANOS[0])) if st.session_state.get("p_pet") in LISTA_PETIANOS else 0
+            petiano = st.selectbox("Petiano Responsável pela Transcrição", LISTA_PETIANOS, key="ident_pet", index=idx_pet)
+            
+            idx_curr = LISTA_CURRICULOS.index(st.session_state.get("p_curr", LISTA_CURRICULOS[0])) if st.session_state.get("p_curr") in LISTA_CURRICULOS else 0
+            curr_disc = st.radio("Matriz Curricular", LISTA_CURRICULOS, key="ident_curr", index=idx_curr)
             
         st.markdown("<br>", unsafe_allow_html=True)
         
         # Botão de avanço com validação
         if st.button("INICIAR TRANSCRIÇÃO 🚀", type="primary", use_container_width=True):
-            if not st.session_state.ident_nome or not st.session_state.ident_pet:
+            if not st.session_state.get("ident_nome") or not st.session_state.get("ident_pet"):
                 st.error("⚠️ Atenção: É obrigatório informar o Nome do Discente e o Petiano Responsável.")
             else:
-                # O famoso Efeito Loading
-                with st.spinner(f"Preparando ambiente seguro para o discente {st.session_state.ident_nome}..."):
-                    time.sleep(1.5) # Pausa de 1.5 segundos para dar a sensação de processamento
+                # SOLUÇÃO DO ERRO: Salvando os dados em variáveis persistentes ("p_")
+                st.session_state.p_nome = st.session_state.ident_nome
+                st.session_state.p_mat = st.session_state.ident_mat
+                st.session_state.p_sem = st.session_state.ident_sem
+                st.session_state.p_pet = st.session_state.ident_pet
+                st.session_state.p_curr = st.session_state.ident_curr
+                
+                with st.spinner(f"Preparando ambiente seguro para o discente {st.session_state.p_nome}..."):
+                    time.sleep(1.5) 
                 st.session_state.fase_transcricao = "perguntas"
                 st.rerun()
 
     # ETAPA 2: MÓDULO DE TRANSCRIÇÃO DAS PERGUNTAS
     elif st.session_state.fase_transcricao == "perguntas":
         
-        # Cabeçalho Informativo (Lembra o usuário de quem ele está transcrevendo)
+        # Lendo das variáveis persistentes ("p_")
         st.markdown(f"""
         <div class="header-box">
             <h4 style="margin-top:0; color:#002060;">📋 Ambiente de Transcrição Ativo</h4>
-            <strong>Discente:</strong> {st.session_state.ident_nome} ({st.session_state.ident_mat}) &nbsp;|&nbsp; 
-            <strong>Semestre:</strong> {st.session_state.ident_sem} &nbsp;|&nbsp; 
-            <strong>Responsável:</strong> {st.session_state.ident_pet}
+            <strong>Discente:</strong> {st.session_state.get("p_nome", "")} ({st.session_state.get("p_mat", "")}) &nbsp;|&nbsp; 
+            <strong>Semestre:</strong> {st.session_state.get("p_sem", "")} &nbsp;|&nbsp; 
+            <strong>Responsável:</strong> {st.session_state.get("p_pet", "")}
         </div>
         """, unsafe_allow_html=True)
         
@@ -157,11 +170,12 @@ if modo_operacao == "📝 Nova Transcrição":
                 else:
                     dados_salvar = {
                         "Registro_ID": str(uuid.uuid4()),
-                        "Petiano_Responsavel": st.session_state["ident_pet"],
-                        "Nome": st.session_state["ident_nome"],
-                        "Matricula": st.session_state["ident_mat"],
-                        "Semestre": st.session_state["ident_sem"],
-                        "Curriculo": st.session_state["ident_curr"],
+                        # Usando as variáveis persistentes
+                        "Petiano_Responsavel": st.session_state.p_pet,
+                        "Nome": st.session_state.p_nome,
+                        "Matricula": st.session_state.p_mat,
+                        "Semestre": st.session_state.p_sem,
+                        "Curriculo": st.session_state.p_curr,
                         "Data_Registro": obter_hora_ceara(),
                         "Autoavaliação: Pontos Fortes": txt_fortes.strip(),
                         "Autoavaliação: Pontos a Desenvolver": txt_fracos.strip(),
@@ -179,10 +193,11 @@ if modo_operacao == "📝 Nova Transcrição":
                         inserir_registro(dados_salvar)
                         st.balloons()
                         st.success("✅ Transcrição salva com sucesso no banco de dados!")
+                        
                         # Limpa os dados e volta para a página inicial
                         st.session_state.clear() 
                         st.session_state.fase_transcricao = "configuracao"
-                        time.sleep(2) # Pausa rápida para a pessoa ler a mensagem de sucesso
+                        time.sleep(2) 
                         st.rerun()
                     except Exception as e:
                         st.error(f"❌ ERRO ao salvar no banco: {e}")
