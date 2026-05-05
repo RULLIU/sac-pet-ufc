@@ -42,9 +42,10 @@ def obter_hora_ceara():
     fuso = timezone(timedelta(hours=-3))
     return datetime.now(fuso).strftime("%Y-%m-%d %H:%M:%S")
 
-# Controle de estado para a nova lógica de Wizard
 if "fase_transcricao" not in st.session_state:
     st.session_state.fase_transcricao = "configuracao"
+if "aba_atual" not in st.session_state:
+    st.session_state.aba_atual = SECOES[0]
 
 # ==============================================================================
 # BARRA LATERAL 
@@ -70,7 +71,6 @@ if modo_operacao == "📝 Nova Transcrição":
             nome_disc = st.text_input("Nome Completo do Discente", key="ident_nome", value=st.session_state.get("p_nome", ""))
             mat_disc = st.text_input("Matrícula", key="ident_mat", value=st.session_state.get("p_mat", ""))
             
-            # Recupera o índice correto se já houver algo salvo
             idx_sem = LISTA_SEMESTRES.index(st.session_state.get("p_sem", LISTA_SEMESTRES[0])) if st.session_state.get("p_sem") in LISTA_SEMESTRES else 0
             sem_disc = st.selectbox("Semestre Vigente", LISTA_SEMESTRES, key="ident_sem", index=idx_sem)
             
@@ -83,17 +83,16 @@ if modo_operacao == "📝 Nova Transcrição":
             
         st.markdown("<br>", unsafe_allow_html=True)
         
-        # Botão de avanço com validação
         if st.button("INICIAR TRANSCRIÇÃO 🚀", type="primary", use_container_width=True):
             if not st.session_state.get("ident_nome") or not st.session_state.get("ident_pet"):
                 st.error("⚠️ Atenção: É obrigatório informar o Nome do Discente e o Petiano Responsável.")
             else:
-                # SOLUÇÃO DO ERRO: Salvando os dados em variáveis persistentes ("p_")
                 st.session_state.p_nome = st.session_state.ident_nome
                 st.session_state.p_mat = st.session_state.ident_mat
                 st.session_state.p_sem = st.session_state.ident_sem
                 st.session_state.p_pet = st.session_state.ident_pet
                 st.session_state.p_curr = st.session_state.ident_curr
+                st.session_state.aba_atual = SECOES[0] # Reinicia o ciclo de abas
                 
                 with st.spinner(f"Preparando ambiente seguro para o discente {st.session_state.p_nome}..."):
                     time.sleep(1.5) 
@@ -103,7 +102,6 @@ if modo_operacao == "📝 Nova Transcrição":
     # ETAPA 2: MÓDULO DE TRANSCRIÇÃO DAS PERGUNTAS
     elif st.session_state.fase_transcricao == "perguntas":
         
-        # Lendo das variáveis persistentes ("p_")
         st.markdown(f"""
         <div class="header-box">
             <h4 style="margin-top:0; color:#002060;">📋 Ambiente de Transcrição Ativo</h4>
@@ -119,7 +117,14 @@ if modo_operacao == "📝 Nova Transcrição":
             
         st.markdown("---")
 
-        abas = st.tabs(SECOES)
+        # Barra de navegação horizontal (Simulando Tabs)
+        idx_aba_atual = SECOES.index(st.session_state.aba_atual)
+        aba_ativa = st.radio("Navegação:", SECOES, index=idx_aba_atual, horizontal=True, label_visibility="collapsed")
+        
+        # Se o usuário clicar manualmente em outra aba na barra
+        if aba_ativa != st.session_state.aba_atual:
+            st.session_state.aba_atual = aba_ativa
+            st.rerun()
         
         def renderizar_pergunta_nativa(id_, titulo):
             with st.container():
@@ -130,25 +135,38 @@ if modo_operacao == "📝 Nova Transcrição":
                 with c2:
                     st.text_input("Transcrição de Obs.", placeholder="Comentários...", key=f"obs_{id_}", label_visibility="collapsed")
 
-        # Mapeamento do conteúdo
-        com_blocos = [
-            (abas[0], ORDEM_QUESTOES[:8]),
-            (abas[1], ORDEM_QUESTOES[8:19]),
-            (abas[2], ORDEM_QUESTOES[19:31]),
-            (abas[3], ORDEM_QUESTOES[31:41]),
-            (abas[4], ORDEM_QUESTOES[41:-1])
-        ]
+        # Mapeamento do conteúdo para cada página
+        blocos_questoes = {
+            SECOES[0]: ORDEM_QUESTOES[:8],
+            SECOES[1]: ORDEM_QUESTOES[8:19],
+            SECOES[2]: ORDEM_QUESTOES[19:31],
+            SECOES[3]: ORDEM_QUESTOES[31:41],
+            SECOES[4]: ORDEM_QUESTOES[41:-1],
+            SECOES[5]: [ORDEM_QUESTOES[-1]]
+        }
 
-        for aba, questoes in com_blocos:
-            with aba:
-                for id_, titulo in questoes:
-                    renderizar_pergunta_nativa(id_, titulo)
-
-        # Aba de Reflexão Final e Salvamento
-        with abas[5]:
+        # Renderiza apenas as perguntas da página atual
+        if st.session_state.aba_atual == SECOES[5]:
             st.warning("⚠️ Obrigatório preencher a Reflexão Final. Se estiver vazio no papel, digite 'EM BRANCO'.")
-            renderizar_pergunta_nativa(ORDEM_QUESTOES[-1][0], ORDEM_QUESTOES[-1][1])
-            
+        
+        for id_, titulo in blocos_questoes[st.session_state.aba_atual]:
+            renderizar_pergunta_nativa(id_, titulo)
+
+        st.markdown("---")
+
+        # ---------------------------------------------------------
+        # LÓGICA DE AVANÇAR OU SALVAR (RODAPÉ)
+        # ---------------------------------------------------------
+        if st.session_state.aba_atual != SECOES[5]:
+            # Botão de próxima página se NÃO for a última aba
+            col_vazia1, col_botao, col_vazia2 = st.columns([1, 2, 1])
+            with col_botao:
+                prox_secao = SECOES[idx_aba_atual + 1]
+                if st.button(f"AVANÇAR PARA: {prox_secao} ➡️", use_container_width=True):
+                    st.session_state.aba_atual = prox_secao
+                    st.rerun()
+        else:
+            # Formulário Aberto se FOR a última aba (Reflexão)
             st.markdown("#### TRANSCRIÇÃO DAS RESPOSTAS ABERTAS")
             txt_fortes = st.text_area("Pontos Fortes *", key="obs_fortes")
             txt_fracos = st.text_area("Pontos a Desenvolver *", key="obs_fracos")
@@ -170,7 +188,6 @@ if modo_operacao == "📝 Nova Transcrição":
                 else:
                     dados_salvar = {
                         "Registro_ID": str(uuid.uuid4()),
-                        # Usando as variáveis persistentes
                         "Petiano_Responsavel": st.session_state.p_pet,
                         "Nome": st.session_state.p_nome,
                         "Matricula": st.session_state.p_mat,
@@ -194,9 +211,10 @@ if modo_operacao == "📝 Nova Transcrição":
                         st.balloons()
                         st.success("✅ Transcrição salva com sucesso no banco de dados!")
                         
-                        # Limpa os dados e volta para a página inicial
+                        # Limpa a memória e reseta o formulário inteiro
                         st.session_state.clear() 
                         st.session_state.fase_transcricao = "configuracao"
+                        st.session_state.aba_atual = SECOES[0]
                         time.sleep(2) 
                         st.rerun()
                     except Exception as e:
