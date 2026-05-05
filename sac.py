@@ -88,10 +88,28 @@ with st.sidebar:
     menu_principal = st.radio("Ir para:", ["📊 Dashboard Público", "🔒 Área Restrita"], label_visibility="collapsed")
     st.markdown("---")
 
-# ==============================================================================
+## ==============================================================================
 # PÁGINA 1: DASHBOARD PÚBLICO (ANÁLISE ROBUSTA)
 # ==============================================================================
 if menu_principal == "📊 Dashboard Público":
+    
+    # --- NOVO BLOCO: RESUMO DO PROJETO ---
+    st.markdown("""
+    <div style="background-color: #f0f4f8; padding: 20px; border-radius: 10px; border-left: 5px solid #002060; margin-bottom: 25px;">
+        <h4 style="margin-top: 0; color: #002060;">📌 Sobre o Projeto S.A.C.</h4>
+        <p style="margin-bottom: 10px; font-size: 1.05rem;">
+            O <strong>Sistema de Avaliação Curricular</strong> é uma plataforma voltada para a avaliação das disciplinas e docentes do Departamento de Engenharia Química (DEQ) da UFC. Nosso objetivo é transformar a percepção dos discentes em dados estratégicos.
+        </p>
+        <p style="margin-bottom: 5px; font-weight: bold;">Com esses dados, buscamos:</p>
+        <ul style="margin-top: 0; padding-left: 20px;">
+            <li><strong>Apoiar a Coordenação:</strong> Analisar a eficácia e o impacto da nova matriz curricular (2023.1).</li>
+            <li><strong>Garantir Qualidade:</strong> Verificar a aderência da formação acadêmica às competências exigidas pelo CREA.</li>
+            <li><strong>Promover Evolução:</strong> Impulsionar um ciclo de melhoria contínua e fortalecer o diálogo entre alunos e professores.</li>
+        </ul>
+    </div>
+    """, unsafe_allow_html=True)
+    # -------------------------------------
+
     df = ler_banco_cacheados()
     
     if df.empty:
