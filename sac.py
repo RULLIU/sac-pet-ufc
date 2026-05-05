@@ -106,7 +106,6 @@ if menu_principal == "📊 Dashboard Público":
             f_sem = cf1.selectbox("Filtrar por Semestre:", sems_disp)
             f_curr = cf2.selectbox("Filtrar por Matriz Curricular:", currs_disp)
             
-        # Aplicando filtros
         df_filt = df.copy()
         if f_sem != "Todos": df_filt = df_filt[df_filt['Semestre'] == f_sem]
         if f_curr != "Todos": df_filt = df_filt[df_filt['Curriculo'] == f_curr]
@@ -114,12 +113,11 @@ if menu_principal == "📊 Dashboard Público":
         if df_filt.empty:
             st.warning("Nenhum discente corresponde aos filtros selecionados.")
         else:
-            # Cálculos Base
             cols_notas = [id_ for id_, _ in ORDEM_QUESTOES if id_ in df_filt.columns]
             df_nums = df_filt[cols_notas].apply(pd.to_numeric, errors='coerce')
             media_geral = df_nums.mean().mean()
             
-            # 2. INDICADORES CHAVE (KPIs) com visual moderno
+            # 2. INDICADORES CHAVE (KPIs)
             st.markdown("<br>", unsafe_allow_html=True)
             k1, k2, k3 = st.columns(3)
             k1.markdown(f"""<div class='kpi-card'><div class='kpi-titulo'>Total de Avaliações</div><div class='kpi-valor'>{len(df_filt)}</div></div>""", unsafe_allow_html=True)
@@ -130,13 +128,11 @@ if menu_principal == "📊 Dashboard Público":
             k3.markdown(f"""<div class='kpi-card'><div class='kpi-titulo'>Última Atualização</div><div class='kpi-valor' style='font-size:1.5rem; margin-top:10px;'>{data_str}</div></div>""", unsafe_allow_html=True)
             st.markdown("<br>", unsafe_allow_html=True)
 
-            # Preparando dados para os gráficos de Questões
             medias_questoes = df_nums.mean().reset_index()
             medias_questoes.columns = ["ID", "Média"]
             medias_questoes["Competência"] = medias_questoes["ID"].map(ID_PARA_TEXTO)
             medias_questoes = medias_questoes.dropna().sort_values(by="Média", ascending=False)
 
-            # INSIGHT DINÂMICO (Para tornar os dados "Palpáveis")
             if len(medias_questoes) >= 2:
                 top_1 = medias_questoes.iloc[0]['Competência']
                 bot_1 = medias_questoes.iloc[-1]['Competência']
@@ -147,11 +143,13 @@ if menu_principal == "📊 Dashboard Público":
             # 3. SISTEMA DE ABAS ORGANIZADAS
             tab_geral, tab_detalhada, tab_tabela = st.tabs(["🎯 Visão Global", "📊 Análise Profunda", "📑 Dados e Exportação"])
 
-            # ABA 1: VISÃO GLOBAL (Radar e Evolução)
+            # ABA 1: VISÃO GLOBAL
             with tab_geral:
                 c_graf1, c_graf2 = st.columns(2)
                 with c_graf1:
-                    st.markdown("**Desempenho por Macro Área**")
+                    st.markdown("#### Desempenho por Macro Área")
+                    st.caption("💡 **Como ler:** Este gráfico de radar (teia) mostra o equilíbrio das notas. Quanto mais a área colorida se expande para as bordas (em direção à nota 5.0), maior a proficiência geral dos alunos naquele bloco de disciplinas.")
+                    
                     secoes_map = { "1. Gerais": cols_notas[:8], "2. Específicas": cols_notas[8:19], "3. Básicas": cols_notas[19:31], "4. Profissionais": cols_notas[31:41], "5. Avançadas": cols_notas[41:-1] }
                     medias_radar = []
                     for nome_secao, ids in secoes_map.items():
@@ -167,23 +165,27 @@ if menu_principal == "📊 Dashboard Público":
                         st.plotly_chart(fig_radar, use_container_width=True)
                 
                 with c_graf2:
-                    st.markdown("**Evolução da Média por Semestre**")
+                    st.markdown("#### Evolução da Média por Semestre")
+                    st.caption("💡 **Como ler:** Compara a média geral dos discentes agrupada pelo semestre cursado. Permite visualizar se os alunos adquirem mais segurança e competências técnicas à medida que chegam ao final do curso.")
+                    
                     df_filt['Media_Aluno'] = df_nums.mean(axis=1)
                     media_por_semestre = df_filt.groupby('Semestre')['Media_Aluno'].mean().reset_index()
                     fig_bar_sem = px.bar(media_por_semestre, x='Semestre', y='Media_Aluno', text_auto='.2f', color='Media_Aluno', color_continuous_scale='Blues')
                     fig_bar_sem.update_layout(yaxis_range=[0, 5], coloraxis_showscale=False)
                     st.plotly_chart(fig_bar_sem, use_container_width=True)
 
-            # ABA 2: ANÁLISE PROFUNDA (Rankings e Boxplot)
+            # ABA 2: ANÁLISE PROFUNDA
             with tab_detalhada:
-                st.markdown("**🏆 Top 5 Fortalezas (Maiores Médias)**")
+                st.markdown("#### 🏆 Top 5 Fortalezas (Maiores Médias)")
+                st.caption("💡 **Como ler:** Lista as 5 competências específicas onde os discentes relataram o **maior nível** de aprendizado e capacidade prática. Representa os pilares de sucesso do curso de acordo com a percepção dos alunos.")
                 fig_top = px.bar(medias_questoes.head(5).sort_values('Média', ascending=True), 
                                  x='Média', y='Competência', orientation='h', text_auto='.2f')
                 fig_top.update_traces(marker_color='#2ca02c') # Verde
                 fig_top.update_layout(xaxis_range=[0, 5], height=300)
                 st.plotly_chart(fig_top, use_container_width=True)
 
-                st.markdown("**📉 Top 5 Oportunidades de Melhoria (Menores Médias)**")
+                st.markdown("#### 📉 Top 5 Oportunidades de Melhoria (Menores Médias)")
+                st.caption("💡 **Como ler:** Lista as 5 competências com as **menores médias**. Estas são as áreas de alerta, indicando onde os alunos sentem mais dificuldade ou onde o currículo e metodologias de ensino podem ser fortalecidos.")
                 fig_bot = px.bar(medias_questoes.tail(5), 
                                  x='Média', y='Competência', orientation='h', text_auto='.2f')
                 fig_bot.update_traces(marker_color='#d62728') # Vermelho
@@ -192,24 +194,22 @@ if menu_principal == "📊 Dashboard Público":
 
                 if 'Curriculo' in df_filt.columns and df_filt['Curriculo'].nunique() > 1:
                     st.markdown("---")
-                    st.markdown("**📦 Distribuição: Currículo Novo vs Antigo**")
+                    st.markdown("#### 📦 Distribuição: Currículo Novo vs Antigo")
+                    st.caption("💡 **Como ler:** Este Boxplot (diagrama de caixa) compara a variação das médias entre diferentes matrizes curriculares. A linha no meio da caixa é a mediana (o aluno do 'meio'). Caixas mais curtas indicam notas mais padronizadas, enquanto caixas longas apontam grande desigualdade de desempenho.")
                     fig_box = px.box(df_filt, x="Curriculo", y="Media_Aluno", color="Curriculo", points="all")
                     st.plotly_chart(fig_box, use_container_width=True)
 
-            # ABA 3: TABELA DE DADOS (Limpa e Anônima)
+            # ABA 3: TABELA DE DADOS
             with tab_tabela:
-                st.markdown("**Tabela Agregada de Competências**")
-                st.caption("Esta tabela apresenta a média técnica de cada competência baseada nos filtros aplicados. Dados pessoais dos alunos foram ocultados para garantir o anonimato.")
+                st.markdown("#### Tabela Agregada de Competências")
+                st.caption("Esta tabela apresenta a média técnica de cada competência baseada nos filtros aplicados. Dados pessoais dos alunos foram ocultados para garantir o anonimato ético da avaliação.")
                 
-                # Monta uma tabela bonita
                 df_tabela = medias_questoes.copy()
                 df_tabela["Média"] = df_tabela["Média"].round(2)
                 df_tabela.rename(columns={"ID": "Código da Questão"}, inplace=True)
                 
-                # Exibe a tabela interativa
                 st.dataframe(df_tabela, use_container_width=True, hide_index=True)
                 
-                # Botão de download
                 csv = df_tabela.to_csv(index=False, encoding='utf-8-sig').encode('utf-8-sig')
                 st.download_button(
                     label="📥 Baixar Dados em Excel/CSV",
