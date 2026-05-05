@@ -34,13 +34,18 @@ div[role="radiogroup"] { flex-direction: row; gap: 15px; }
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown("""
-<div style="text-align:center;margin-bottom:30px;padding-bottom:20px;border-bottom:2px solid rgba(128,128,128,0.2);">
-  <h1 style="margin:0;font-size:2.5rem;color:#002060;">S.A.C.</h1>
-  <div style="font-size:1.2rem;font-weight:600;opacity:0.8;">SISTEMA DE AVALIAÇÃO CURRICULAR</div>
-  <div style="font-size:0.9rem;opacity:0.6;">PET ENGENHARIA QUÍMICA - UFC</div>
-</div>
-""", unsafe_allow_html=True)
+# ==============================================================================
+# CABEÇALHO VISUAL
+# ==============================================================================
+try:
+    # Tenta carregar a imagem do banner (certifique-se de que a extensão está correta, ex: .png ou .jpg)
+    st.image("header.png", use_container_width=True)
+except Exception:
+    # Se a imagem não for encontrada, exibe um título de emergência
+    st.markdown("<h2 style='text-align:center; color:#002060;'>S.A.C. - Avaliação Curricular</h2>", unsafe_allow_html=True)
+
+st.markdown("<div style='margin-bottom: 25px;'></div>", unsafe_allow_html=True)
+
 
 def obter_hora_ceara():
     fuso = timezone(timedelta(hours=-3))
