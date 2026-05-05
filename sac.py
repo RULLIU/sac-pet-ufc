@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 
 # Importações dos módulos 
 from config import SECOES, LISTA_PETIANOS, LISTA_SEMESTRES, LISTA_CURRICULOS, NOTA_LABELS, ORDEM_QUESTOES, ID_PARA_LABEL, ID_PARA_TEXTO
@@ -20,15 +21,15 @@ st.set_page_config(page_title="S.A.C. - PET Engenharia Química", layout="wide",
 st.markdown("""
 <style>
 :root { --primary-color: #002060; }
-.pergunta-card {
-    background-color: #ffffff; border-radius: 8px; padding: 16px 24px; margin-bottom: 16px;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.04); border-left: 6px solid #002060; border: 1px solid #edf2f7;
-}
+.pergunta-card { background-color: #ffffff; border-radius: 8px; padding: 16px 24px; margin-bottom: 16px; box-shadow: 0 2px 6px rgba(0,0,0,0.04); border-left: 6px solid #002060; border: 1px solid #edf2f7; }
 .pergunta-texto { font-size: 1.1rem; font-weight: 700; margin-bottom: 10px; color: #1e1e1e; }
 div[role="radiogroup"] { flex-direction: row; gap: 15px; } 
 .edit-warning { padding: 15px; border-radius: 8px; text-align: center; font-weight: bold; background-color: #fff3e0; color: #e65100; }
 .header-box { background-color: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 15px; margin-bottom: 20px; }
 .login-box { max-width: 400px; margin: 0 auto; padding: 30px; border: 1px solid #e9ecef; border-radius: 10px; background-color: #f8f9fa; text-align: center; }
+.kpi-card { background-color: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); border: 1px solid #f0f2f6; text-align: center; }
+.kpi-valor { font-size: 2rem; font-weight: 800; color: #002060; margin: 0; }
+.kpi-titulo { font-size: 0.9rem; color: #666; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; }
 #MainMenu{visibility:hidden} footer{visibility:hidden}
 </style>
 """, unsafe_allow_html=True)
@@ -88,73 +89,139 @@ with st.sidebar:
     st.markdown("---")
 
 # ==============================================================================
-# PÁGINA 1: DASHBOARD PÚBLICO (ABERTO A TODOS)
+# PÁGINA 1: DASHBOARD PÚBLICO (ANÁLISE ROBUSTA)
 # ==============================================================================
 if menu_principal == "📊 Dashboard Público":
-    st.markdown("### 📊 DASHBOARD DE INTELIGÊNCIA CURRICULAR")
-    st.caption("Visão geral e anônima do desempenho dos discentes na matriz curricular.")
-    
     df = ler_banco_cacheados()
     
     if df.empty:
-        st.info("Nenhum dado encontrado para gerar gráficos no momento.")
+        st.info("📊 Nenhum dado encontrado para gerar análises no momento.")
     else:
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Total de Avaliações", len(df))
-        
-        cols_notas = [id_ for id_, _ in ORDEM_QUESTOES if id_ in df.columns]
-        df_nums = df[cols_notas].apply(pd.to_numeric, errors='coerce')
-        media_geral = df_nums.mean().mean()
-        c2.metric("Média Global do Curso", f"{media_geral:.2f}/5.0")
-        
-        ultima_att = pd.to_datetime(df['Data_Registro']).max()
-        c3.metric("Última Atualização", ultima_att.strftime("%d/%m/%y %H:%M") if pd.notna(ultima_att) else "-")
+        # 1. ÁREA DE FILTROS INTERATIVOS
+        with st.expander("🔎 FILTROS DE ANÁLISE (Clique para expandir)", expanded=False):
+            cf1, cf2 = st.columns(2)
+            sems_disp = ["Todos"] + sorted([s for s in df['Semestre'].dropna().unique()])
+            currs_disp = ["Todos"] + sorted([c for c in df['Curriculo'].dropna().unique()])
+            
+            f_sem = cf1.selectbox("Filtrar por Semestre:", sems_disp)
+            f_curr = cf2.selectbox("Filtrar por Matriz Curricular:", currs_disp)
+            
+        # Aplicando filtros
+        df_filt = df.copy()
+        if f_sem != "Todos": df_filt = df_filt[df_filt['Semestre'] == f_sem]
+        if f_curr != "Todos": df_filt = df_filt[df_filt['Curriculo'] == f_curr]
 
-        st.markdown("---")
-        
-        st.subheader("📈 Desempenho: Currículo Novo vs Antigo")
-        if 'Curriculo' in df.columns and df['Curriculo'].nunique() > 1:
-            df['Media_Aluno'] = df_nums.mean(axis=1)
-            fig_box = px.box(df, x="Curriculo", y="Media_Aluno", color="Curriculo", 
-                             title="Distribuição das Médias Gerais por Matriz Curricular")
-            st.plotly_chart(fig_box, use_container_width=True)
+        if df_filt.empty:
+            st.warning("Nenhum discente corresponde aos filtros selecionados.")
         else:
-            st.caption("Apenas uma matriz curricular cadastrada no momento para comparação.")
+            # Cálculos Base
+            cols_notas = [id_ for id_, _ in ORDEM_QUESTOES if id_ in df_filt.columns]
+            df_nums = df_filt[cols_notas].apply(pd.to_numeric, errors='coerce')
+            media_geral = df_nums.mean().mean()
+            
+            # 2. INDICADORES CHAVE (KPIs) com visual moderno
+            st.markdown("<br>", unsafe_allow_html=True)
+            k1, k2, k3 = st.columns(3)
+            k1.markdown(f"""<div class='kpi-card'><div class='kpi-titulo'>Total de Avaliações</div><div class='kpi-valor'>{len(df_filt)}</div></div>""", unsafe_allow_html=True)
+            k2.markdown(f"""<div class='kpi-card'><div class='kpi-titulo'>Média Global de Desempenho</div><div class='kpi-valor'>{media_geral:.2f} <span style='font-size:1rem;color:#999;'>/ 5.0</span></div></div>""", unsafe_allow_html=True)
+            
+            ultima_att = pd.to_datetime(df['Data_Registro']).max()
+            data_str = ultima_att.strftime("%d/%m/%Y") if pd.notna(ultima_att) else "-"
+            k3.markdown(f"""<div class='kpi-card'><div class='kpi-titulo'>Última Atualização</div><div class='kpi-valor' style='font-size:1.5rem; margin-top:10px;'>{data_str}</div></div>""", unsafe_allow_html=True)
+            st.markdown("<br>", unsafe_allow_html=True)
 
-        st.markdown("---")
-        st.subheader("🎯 Mapeamento de Competências (Gráfico de Radar)")
-        
-        secoes_map = {
-            "1. Gerais": cols_notas[:8],
-            "2. Específicas": cols_notas[8:19],
-            "3. Básicas": cols_notas[19:31],
-            "4. Profissionais": cols_notas[31:41],
-            "5. Avançadas": cols_notas[41:-1]
-        }
-        
-        medias_radar = []
-        for nome_secao, ids in secoes_map.items():
-            valid_ids = [i for i in ids if i in df_nums.columns]
-            if valid_ids:
-                media_secao = df_nums[valid_ids].mean().mean()
-                if pd.notna(media_secao):
-                    medias_radar.append({"Macro Área": nome_secao, "Média": media_secao})
-        
-        df_radar = pd.DataFrame(medias_radar)
-        
-        if not df_radar.empty:
-            fig_radar = px.line_polar(df_radar, r='Média', theta='Macro Área', line_close=True,
-                                      range_r=[0, 5], markers=True, title="Desempenho Médio Global por Macro Área")
-            fig_radar.update_traces(fill='toself', line_color='#002060')
-            st.plotly_chart(fig_radar, use_container_width=True)
+            # Preparando dados para os gráficos de Questões
+            medias_questoes = df_nums.mean().reset_index()
+            medias_questoes.columns = ["ID", "Média"]
+            medias_questoes["Competência"] = medias_questoes["ID"].map(ID_PARA_TEXTO)
+            medias_questoes = medias_questoes.dropna().sort_values(by="Média", ascending=False)
 
+            # INSIGHT DINÂMICO (Para tornar os dados "Palpáveis")
+            if len(medias_questoes) >= 2:
+                top_1 = medias_questoes.iloc[0]['Competência']
+                bot_1 = medias_questoes.iloc[-1]['Competência']
+                st.info(f"💡 **Tradução Rápida dos Dados:** Atualmente, a maior fortaleza dos alunos analisados é **{top_1}**. Por outro lado, a área que exige maior atenção pedagógica e desenvolvimento é **{bot_1}**.")
+
+            st.markdown("---")
+
+            # 3. SISTEMA DE ABAS ORGANIZADAS
+            tab_geral, tab_detalhada, tab_tabela = st.tabs(["🎯 Visão Global", "📊 Análise Profunda", "📑 Dados e Exportação"])
+
+            # ABA 1: VISÃO GLOBAL (Radar e Evolução)
+            with tab_geral:
+                c_graf1, c_graf2 = st.columns(2)
+                with c_graf1:
+                    st.markdown("**Desempenho por Macro Área**")
+                    secoes_map = { "1. Gerais": cols_notas[:8], "2. Específicas": cols_notas[8:19], "3. Básicas": cols_notas[19:31], "4. Profissionais": cols_notas[31:41], "5. Avançadas": cols_notas[41:-1] }
+                    medias_radar = []
+                    for nome_secao, ids in secoes_map.items():
+                        valid_ids = [i for i in ids if i in df_nums.columns]
+                        if valid_ids:
+                            media_secao = df_nums[valid_ids].mean().mean()
+                            if pd.notna(media_secao): medias_radar.append({"Macro Área": nome_secao, "Média": media_secao})
+                    
+                    if medias_radar:
+                        df_radar = pd.DataFrame(medias_radar)
+                        fig_radar = px.line_polar(df_radar, r='Média', theta='Macro Área', line_close=True, range_r=[0, 5], markers=True)
+                        fig_radar.update_traces(fill='toself', line_color='#002060')
+                        st.plotly_chart(fig_radar, use_container_width=True)
+                
+                with c_graf2:
+                    st.markdown("**Evolução da Média por Semestre**")
+                    df_filt['Media_Aluno'] = df_nums.mean(axis=1)
+                    media_por_semestre = df_filt.groupby('Semestre')['Media_Aluno'].mean().reset_index()
+                    fig_bar_sem = px.bar(media_por_semestre, x='Semestre', y='Media_Aluno', text_auto='.2f', color='Media_Aluno', color_continuous_scale='Blues')
+                    fig_bar_sem.update_layout(yaxis_range=[0, 5], coloraxis_showscale=False)
+                    st.plotly_chart(fig_bar_sem, use_container_width=True)
+
+            # ABA 2: ANÁLISE PROFUNDA (Rankings e Boxplot)
+            with tab_detalhada:
+                st.markdown("**🏆 Top 5 Fortalezas (Maiores Médias)**")
+                fig_top = px.bar(medias_questoes.head(5).sort_values('Média', ascending=True), 
+                                 x='Média', y='Competência', orientation='h', text_auto='.2f')
+                fig_top.update_traces(marker_color='#2ca02c') # Verde
+                fig_top.update_layout(xaxis_range=[0, 5], height=300)
+                st.plotly_chart(fig_top, use_container_width=True)
+
+                st.markdown("**📉 Top 5 Oportunidades de Melhoria (Menores Médias)**")
+                fig_bot = px.bar(medias_questoes.tail(5), 
+                                 x='Média', y='Competência', orientation='h', text_auto='.2f')
+                fig_bot.update_traces(marker_color='#d62728') # Vermelho
+                fig_bot.update_layout(xaxis_range=[0, 5], height=300)
+                st.plotly_chart(fig_bot, use_container_width=True)
+
+                if 'Curriculo' in df_filt.columns and df_filt['Curriculo'].nunique() > 1:
+                    st.markdown("---")
+                    st.markdown("**📦 Distribuição: Currículo Novo vs Antigo**")
+                    fig_box = px.box(df_filt, x="Curriculo", y="Media_Aluno", color="Curriculo", points="all")
+                    st.plotly_chart(fig_box, use_container_width=True)
+
+            # ABA 3: TABELA DE DADOS (Limpa e Anônima)
+            with tab_tabela:
+                st.markdown("**Tabela Agregada de Competências**")
+                st.caption("Esta tabela apresenta a média técnica de cada competência baseada nos filtros aplicados. Dados pessoais dos alunos foram ocultados para garantir o anonimato.")
+                
+                # Monta uma tabela bonita
+                df_tabela = medias_questoes.copy()
+                df_tabela["Média"] = df_tabela["Média"].round(2)
+                df_tabela.rename(columns={"ID": "Código da Questão"}, inplace=True)
+                
+                # Exibe a tabela interativa
+                st.dataframe(df_tabela, use_container_width=True, hide_index=True)
+                
+                # Botão de download
+                csv = df_tabela.to_csv(index=False, encoding='utf-8-sig').encode('utf-8-sig')
+                st.download_button(
+                    label="📥 Baixar Dados em Excel/CSV",
+                    data=csv,
+                    file_name=f"sac_medias_competencias_{obter_hora_ceara()[:10]}.csv",
+                    mime="text/csv",
+                )
 
 # ==============================================================================
 # PÁGINA 2: ÁREA RESTRITA (REQUER SENHA)
 # ==============================================================================
 elif menu_principal == "🔒 Área Restrita":
-    
-    # TELA DE LOGIN
     if not st.session_state.autenticado:
         st.markdown("<br><br>", unsafe_allow_html=True)
         st.markdown("""
@@ -168,18 +235,13 @@ elif menu_principal == "🔒 Área Restrita":
         with col2:
             senha_digitada = st.text_input("Senha:", type="password", placeholder="Digite a senha...")
             if st.button("Autenticar 🔐", use_container_width=True, type="primary"):
-                # Ele busca a senha nos Secrets. Se não tiver configurado ainda, usa "petufc2026"
                 senha_correta = st.secrets.get("SENHA_PET", "petufc2026") 
-                
                 if senha_digitada == senha_correta:
                     st.session_state.autenticado = True
                     st.rerun()
                 else:
                     st.error("❌ Senha incorreta. Tente novamente.")
-
-    # SISTEMA INTERNO (SE ESTIVER LOGADO)
     else:
-        # Menu Interno no Sidebar
         with st.sidebar:
             st.markdown("### 🛠️ Módulos de Gestão")
             modo_operacao = st.radio("Ferramentas:", ["📝 Nova Transcrição", "✏️ Editar Registro"], label_visibility="collapsed")
@@ -334,7 +396,7 @@ elif menu_principal == "🔒 Área Restrita":
                                 inserir_registro(dados_salvar)
                                 limpar_rascunho()
                                 st.balloons(); st.success("✅ Transcrição salva com sucesso no banco de dados!")
-                                st.session_state.clear(); st.session_state.autenticado = True # Mantém logado
+                                st.session_state.clear(); st.session_state.autenticado = True
                                 st.session_state.fase_transcricao = "configuracao"; st.session_state.aba_atual = SECOES[0]
                                 time.sleep(2); st.rerun()
                             except Exception as e:
