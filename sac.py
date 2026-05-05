@@ -1,12 +1,12 @@
 # app.py
 import uuid
+import time
 from datetime import datetime, timedelta, timezone
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-import plotly.graph_objects as go
 
-# Importações dos novos módulos
+# Importações dos módulos (Certifique-se de que config.py e database.py estão na mesma pasta)
 from config import SECOES, LISTA_PETIANOS, LISTA_SEMESTRES, LISTA_CURRICULOS, NOTA_LABELS, ORDEM_QUESTOES, ID_PARA_LABEL, ID_PARA_TEXTO
 from database import ler_banco_cacheados, inserir_registro, atualizar_registro
 
@@ -23,8 +23,9 @@ st.markdown("""
     box-shadow: 0 2px 6px rgba(0,0,0,0.04); border-left: 6px solid #002060; border: 1px solid #edf2f7;
 }
 .pergunta-texto { font-size: 1.1rem; font-weight: 700; margin-bottom: 10px; color: #1e1e1e; }
-div[role="radiogroup"] { flex-direction: row; gap: 15px; } /* Força os radios a ficarem horizontais */
+div[role="radiogroup"] { flex-direction: row; gap: 15px; } 
 .edit-warning { padding: 15px; border-radius: 8px; text-align: center; font-weight: bold; background-color: #fff3e0; color: #e65100; }
+.header-box { background-color: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 15px; margin-bottom: 20px; }
 #MainMenu{visibility:hidden} footer{visibility:hidden}
 </style>
 """, unsafe_allow_html=True)
@@ -41,114 +42,153 @@ def obter_hora_ceara():
     fuso = timezone(timedelta(hours=-3))
     return datetime.now(fuso).strftime("%Y-%m-%d %H:%M:%S")
 
+# Controle de estado para a nova lógica de Wizard
+if "fase_transcricao" not in st.session_state:
+    st.session_state.fase_transcricao = "configuracao"
+
 # ==============================================================================
-# BARRA LATERAL
+# BARRA LATERAL (Agora apenas com a navegação dos módulos)
 # ==============================================================================
 with st.sidebar:
-    st.markdown("### ⚙️ MODO DE OPERAÇÃO")
+    st.markdown("### ⚙️ MÓDULOS")
     modo_operacao = st.radio("Selecione:", ["📝 Nova Transcrição", "✏️ Editar Registro", "📊 Painel Gerencial"], label_visibility="collapsed")
-    
-    if modo_operacao == "📝 Nova Transcrição":
-        st.markdown("---")
-        st.markdown("#### 👤 Identificação")
-        petiano = st.selectbox("Responsável", LISTA_PETIANOS, key="ident_pet")
-        nome_disc = st.text_input("Nome do Discente", key="ident_nome")
-        mat_disc = st.text_input("Matrícula", key="ident_mat")
-        sem_disc = st.selectbox("Semestre", LISTA_SEMESTRES, key="ident_sem")
-        curr_disc = st.radio("Matriz", LISTA_CURRICULOS, key="ident_curr")
-        
-        if st.button("Limpar Formulário Inteiro", icon=":material/delete:"):
-            st.session_state.clear()
-            st.rerun()
+    st.markdown("---")
+    st.caption("A navegação global é feita por aqui. Para limpar dados, utilize os botões na tela principal.")
 
 # ==============================================================================
-# 1) NOVA TRANSCRIÇÃO (UX Otimizada com st.tabs e st.radio horizontal)
+# 1) NOVA TRANSCRIÇÃO (Fluxo Dividido: Identificação -> Loading -> Perguntas)
 # ==============================================================================
 if modo_operacao == "📝 Nova Transcrição":
-    # Substituímos a navegação customizada e complexa pelas abas nativas do Streamlit!
-    abas = st.tabs(SECOES)
     
-    def renderizar_pergunta_nativa(id_, titulo):
-        with st.container():
-            st.markdown(f'<div class="pergunta-card"><div class="pergunta-texto">{ID_PARA_LABEL[id_]} — {titulo}</div></div>', unsafe_allow_html=True)
-            c1, c2 = st.columns([0.6, 0.4])
-            with c1:
-                # Adeus código complexo de checkbox! Olá radio horizontal nativo!
-                st.radio("Nota", NOTA_LABELS, horizontal=True, key=f"nota_{id_}", label_visibility="collapsed")
-            with c2:
-                st.text_input("Transcrição de Obs.", placeholder="Comentários...", key=f"obs_{id_}", label_visibility="collapsed")
-
-    # Mapeamento do conteúdo para cada aba
-    com_blocos = [
-        (abas[0], ORDEM_QUESTOES[:8]),
-        (abas[1], ORDEM_QUESTOES[8:19]),
-        (abas[2], ORDEM_QUESTOES[19:31]),
-        (abas[3], ORDEM_QUESTOES[31:41]),
-        (abas[4], ORDEM_QUESTOES[41:-1])
-    ]
-
-    for aba, questoes in com_blocos:
-        with aba:
-            for id_, titulo in questoes:
-                renderizar_pergunta_nativa(id_, titulo)
-
-    # Aba de Reflexão Final e Salvamento
-    with abas[5]:
-        st.warning("⚠️ Obrigatório preencher a Reflexão Final. Se estiver vazio no papel, digite 'EM BRANCO'.")
-        renderizar_pergunta_nativa(ORDEM_QUESTOES[-1][0], ORDEM_QUESTOES[-1][1])
+    # ETAPA 1: PÁGINA PRINCIPAL DE IDENTIFICAÇÃO
+    if st.session_state.fase_transcricao == "configuracao":
+        st.markdown("### 👤 Etapa 1: Dados do Discente")
+        st.info("Preencha as informações do formulário físico para liberar o ambiente de transcrição.")
         
-        st.markdown("#### TRANSCRIÇÃO DAS RESPOSTAS ABERTAS")
-        txt_fortes = st.text_area("Pontos Fortes *", key="obs_fortes")
-        txt_fracos = st.text_area("Pontos a Desenvolver *", key="obs_fracos")
-        txt_prat   = st.text_area("Contribuição Prática", key="obs_prat")
-        txt_ex     = st.text_area("Exemplos de Aplicação", key="obs_ex")
-        txt_fut1   = st.text_area("Competências Futuras", key="obs_fut1")
-        txt_fut2   = st.text_area("Plano de Desenvolvimento", key="obs_fut2")
-        txt_final  = st.text_area("Comentários Finais *", key="obs_final")
-
-        st.markdown("---")
-        if st.button("FINALIZAR E SALVAR REGISTRO", type="primary", use_container_width=True):
-            erros = []
-            if not st.session_state.get("ident_nome"): erros.append("Nome do Discente")
-            if not st.session_state.get("ident_pet"): erros.append("Petiano Responsável")
-            if not txt_fortes: erros.append("Pontos Fortes")
-            if not txt_fracos: erros.append("Pontos a Desenvolver")
-            if not txt_final: erros.append("Comentários Finais")
-
-            if erros:
-                st.error(f"❌ IMPOSSÍVEL SALVAR. Faltam os campos obrigatórios: {', '.join(erros)}")
+        c1, c2 = st.columns(2)
+        with c1:
+            nome_disc = st.text_input("Nome Completo do Discente", key="ident_nome")
+            mat_disc = st.text_input("Matrícula", key="ident_mat")
+            sem_disc = st.selectbox("Semestre Vigente", LISTA_SEMESTRES, key="ident_sem")
+        with c2:
+            petiano = st.selectbox("Petiano Responsável pela Transcrição", LISTA_PETIANOS, key="ident_pet")
+            curr_disc = st.radio("Matriz Curricular", LISTA_CURRICULOS, key="ident_curr")
+            
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        # Botão de avanço com validação
+        if st.button("INICIAR TRANSCRIÇÃO 🚀", type="primary", use_container_width=True):
+            if not st.session_state.ident_nome or not st.session_state.ident_pet:
+                st.error("⚠️ Atenção: É obrigatório informar o Nome do Discente e o Petiano Responsável.")
             else:
-                dados_salvar = {
-                    "Registro_ID": str(uuid.uuid4()),
-                    "Petiano_Responsavel": st.session_state["ident_pet"],
-                    "Nome": st.session_state["ident_nome"],
-                    "Matricula": st.session_state["ident_mat"],
-                    "Semestre": st.session_state["ident_sem"],
-                    "Curriculo": st.session_state["ident_curr"],
-                    "Data_Registro": obter_hora_ceara(),
-                    "Autoavaliação: Pontos Fortes": txt_fortes.strip(),
-                    "Autoavaliação: Pontos a Desenvolver": txt_fracos.strip(),
-                    "Contribuição Prática": txt_prat.strip(),
-                    "Exemplos de Aplicação": txt_ex.strip(),
-                    "Competências Futuras": txt_fut1.strip(),
-                    "Plano de Desenvolvimento": txt_fut2.strip(),
-                    "Observações Finais": txt_final.strip(),
-                }
-                # Coleta as notas dinamicamente
-                for id_, _ in ORDEM_QUESTOES:
-                    dados_salvar[id_] = st.session_state.get(f"nota_{id_}", "N/A")
-                    dados_salvar[f"Obs_{id_}"] = st.session_state.get(f"obs_{id_}", "")
-                
-                try:
-                    inserir_registro(dados_salvar)
-                    st.balloons()
-                    st.success("✅ Transcrição salva com sucesso no banco de dados!")
-                    st.session_state.clear() # Limpa o formulário após salvar
-                except Exception as e:
-                    st.error(f"❌ ERRO ao salvar no banco: {e}")
+                # O famoso Efeito Loading
+                with st.spinner(f"Preparando ambiente seguro para o discente {st.session_state.ident_nome}..."):
+                    time.sleep(1.5) # Pausa de 1.5 segundos para dar a sensação de processamento
+                st.session_state.fase_transcricao = "perguntas"
+                st.rerun()
+
+    # ETAPA 2: MÓDULO DE TRANSCRIÇÃO DAS PERGUNTAS
+    elif st.session_state.fase_transcricao == "perguntas":
+        
+        # Cabeçalho Informativo (Lembra o usuário de quem ele está transcrevendo)
+        st.markdown(f"""
+        <div class="header-box">
+            <h4 style="margin-top:0; color:#002060;">📋 Ambiente de Transcrição Ativo</h4>
+            <strong>Discente:</strong> {st.session_state.ident_nome} ({st.session_state.ident_mat}) &nbsp;|&nbsp; 
+            <strong>Semestre:</strong> {st.session_state.ident_sem} &nbsp;|&nbsp; 
+            <strong>Responsável:</strong> {st.session_state.ident_pet}
+        </div>
+        """, unsafe_allow_html=True)
+        
+        if st.button("⬅️ Voltar e Editar Dados do Discente"):
+            st.session_state.fase_transcricao = "configuracao"
+            st.rerun()
+            
+        st.markdown("---")
+
+        abas = st.tabs(SECOES)
+        
+        def renderizar_pergunta_nativa(id_, titulo):
+            with st.container():
+                st.markdown(f'<div class="pergunta-card"><div class="pergunta-texto">{ID_PARA_LABEL[id_]} — {titulo}</div></div>', unsafe_allow_html=True)
+                c1, c2 = st.columns([0.6, 0.4])
+                with c1:
+                    st.radio("Nota", NOTA_LABELS, horizontal=True, key=f"nota_{id_}", label_visibility="collapsed")
+                with c2:
+                    st.text_input("Transcrição de Obs.", placeholder="Comentários...", key=f"obs_{id_}", label_visibility="collapsed")
+
+        # Mapeamento do conteúdo
+        com_blocos = [
+            (abas[0], ORDEM_QUESTOES[:8]),
+            (abas[1], ORDEM_QUESTOES[8:19]),
+            (abas[2], ORDEM_QUESTOES[19:31]),
+            (abas[3], ORDEM_QUESTOES[31:41]),
+            (abas[4], ORDEM_QUESTOES[41:-1])
+        ]
+
+        for aba, questoes in com_blocos:
+            with aba:
+                for id_, titulo in questoes:
+                    renderizar_pergunta_nativa(id_, titulo)
+
+        # Aba de Reflexão Final e Salvamento
+        with abas[5]:
+            st.warning("⚠️ Obrigatório preencher a Reflexão Final. Se estiver vazio no papel, digite 'EM BRANCO'.")
+            renderizar_pergunta_nativa(ORDEM_QUESTOES[-1][0], ORDEM_QUESTOES[-1][1])
+            
+            st.markdown("#### TRANSCRIÇÃO DAS RESPOSTAS ABERTAS")
+            txt_fortes = st.text_area("Pontos Fortes *", key="obs_fortes")
+            txt_fracos = st.text_area("Pontos a Desenvolver *", key="obs_fracos")
+            txt_prat   = st.text_area("Contribuição Prática", key="obs_prat")
+            txt_ex     = st.text_area("Exemplos de Aplicação", key="obs_ex")
+            txt_fut1   = st.text_area("Competências Futuras", key="obs_fut1")
+            txt_fut2   = st.text_area("Plano de Desenvolvimento", key="obs_fut2")
+            txt_final  = st.text_area("Comentários Finais *", key="obs_final")
+
+            st.markdown("---")
+            if st.button("💾 FINALIZAR E SALVAR REGISTRO", type="primary", use_container_width=True):
+                erros = []
+                if not txt_fortes: erros.append("Pontos Fortes")
+                if not txt_fracos: erros.append("Pontos a Desenvolver")
+                if not txt_final: erros.append("Comentários Finais")
+
+                if erros:
+                    st.error(f"❌ IMPOSSÍVEL SALVAR. Faltam campos obrigatórios: {', '.join(erros)}")
+                else:
+                    dados_salvar = {
+                        "Registro_ID": str(uuid.uuid4()),
+                        "Petiano_Responsavel": st.session_state["ident_pet"],
+                        "Nome": st.session_state["ident_nome"],
+                        "Matricula": st.session_state["ident_mat"],
+                        "Semestre": st.session_state["ident_sem"],
+                        "Curriculo": st.session_state["ident_curr"],
+                        "Data_Registro": obter_hora_ceara(),
+                        "Autoavaliação: Pontos Fortes": txt_fortes.strip(),
+                        "Autoavaliação: Pontos a Desenvolver": txt_fracos.strip(),
+                        "Contribuição Prática": txt_prat.strip(),
+                        "Exemplos de Aplicação": txt_ex.strip(),
+                        "Competências Futuras": txt_fut1.strip(),
+                        "Plano de Desenvolvimento": txt_fut2.strip(),
+                        "Observações Finais": txt_final.strip(),
+                    }
+                    for id_, _ in ORDEM_QUESTOES:
+                        dados_salvar[id_] = st.session_state.get(f"nota_{id_}", "N/A")
+                        dados_salvar[f"Obs_{id_}"] = st.session_state.get(f"obs_{id_}", "")
+                    
+                    try:
+                        inserir_registro(dados_salvar)
+                        st.balloons()
+                        st.success("✅ Transcrição salva com sucesso no banco de dados!")
+                        # Limpa os dados e volta para a página inicial
+                        st.session_state.clear() 
+                        st.session_state.fase_transcricao = "configuracao"
+                        time.sleep(2) # Pausa rápida para a pessoa ler a mensagem de sucesso
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ ERRO ao salvar no banco: {e}")
 
 # ==============================================================================
-# 2) EDIÇÃO DE REGISTRO (Bulk Edit com st.data_editor)
+# 2) EDIÇÃO DE REGISTRO
 # ==============================================================================
 elif modo_operacao == "✏️ Editar Registro":
     st.markdown("### ✏️ EDIÇÃO EM LOTE")
@@ -163,7 +203,6 @@ elif modo_operacao == "✏️ Editar Registro":
         aluno_dados = df[df['Registro_ID'] == sel_id].iloc[0]
 
         st.subheader("1. Edição de Notas (Planilha Dinâmica)")
-        # Transforma os dados numa tabela editável vertical para melhor UX
         cols_notas = [id_ for id_, _ in ORDEM_QUESTOES if id_ in df.columns]
         df_notas = pd.DataFrame({
             "Questão": [ID_PARA_LABEL[id_] for id_ in cols_notas],
@@ -171,7 +210,6 @@ elif modo_operacao == "✏️ Editar Registro":
             "Nota_Atual": [aluno_dados.get(id_, "N/A") for id_ in cols_notas]
         })
         
-        # st.data_editor permite edição direto na tabela parecendo Excel!
         df_notas_editado = st.data_editor(
             df_notas, 
             column_config={"Nota_Atual": st.column_config.SelectboxColumn("Sua Nova Nota", options=NOTA_LABELS, required=True)},
@@ -182,7 +220,6 @@ elif modo_operacao == "✏️ Editar Registro":
 
         st.markdown("---")
         if st.button("💾 SALVAR TODAS AS ALTERAÇÕES", type="primary", icon=":material/update:"):
-            # Constrói o dicionário de update
             novos_dados = {}
             for i, row in df_notas_editado.iterrows():
                 id_real = cols_notas[i]
@@ -191,12 +228,13 @@ elif modo_operacao == "✏️ Editar Registro":
             try:
                 atualizar_registro(sel_id, novos_dados)
                 st.success("Notas atualizadas em lote com sucesso!")
+                time.sleep(1.5)
                 st.rerun()
             except Exception as e:
                 st.error(f"Erro ao atualizar: {e}")
 
 # ==============================================================================
-# 3) PAINEL GERENCIAL (Com Radar Chart e Comparação Curricular)
+# 3) PAINEL GERENCIAL
 # ==============================================================================
 elif modo_operacao == "📊 Painel Gerencial":
     st.markdown("### 📊 DASHBOARD DE INTELIGÊNCIA CURRICULAR")
@@ -205,20 +243,19 @@ elif modo_operacao == "📊 Painel Gerencial":
     if df.empty:
         st.info("Nenhum dado encontrado para gerar gráficos.")
     else:
-        # KPI's Iniciais
         c1, c2, c3 = st.columns(3)
         c1.metric("Total de Avaliações", len(df))
         
-        # Filtros de Dados Puros
         cols_notas = [id_ for id_, _ in ORDEM_QUESTOES if id_ in df.columns]
         df_nums = df[cols_notas].apply(pd.to_numeric, errors='coerce')
         media_geral = df_nums.mean().mean()
         c2.metric("Média Global do Curso", f"{media_geral:.2f}/5.0")
-        c3.metric("Última Atualização", pd.to_datetime(df['Data_Registro']).max().strftime("%d/%m/%y %H:%M"))
+        
+        ultima_att = pd.to_datetime(df['Data_Registro']).max()
+        c3.metric("Última Atualização", ultima_att.strftime("%d/%m/%y %H:%M") if pd.notna(ultima_att) else "-")
 
         st.markdown("---")
         
-        # Gráfico 1: Comparação de Matrizes Curriculares
         st.subheader("📈 Desempenho: Currículo Novo vs Antigo")
         if 'Curriculo' in df.columns and df['Curriculo'].nunique() > 1:
             df['Media_Aluno'] = df_nums.mean(axis=1)
@@ -228,11 +265,9 @@ elif modo_operacao == "📊 Painel Gerencial":
         else:
             st.caption("Apenas uma matriz curricular cadastrada no momento para comparação.")
 
-        # Gráfico 2: Radar Chart (Competências por Seção)
         st.markdown("---")
         st.subheader("🎯 Mapeamento de Competências (Gráfico de Radar)")
         
-        # Calculando a média agregada por Seção (1 a 5)
         secoes_map = {
             "1. Gerais": cols_notas[:8],
             "2. Específicas": cols_notas[8:19],
@@ -246,7 +281,8 @@ elif modo_operacao == "📊 Painel Gerencial":
             valid_ids = [i for i in ids if i in df_nums.columns]
             if valid_ids:
                 media_secao = df_nums[valid_ids].mean().mean()
-                medias_radar.append({"Macro Área": nome_secao, "Média": media_secao})
+                if pd.notna(media_secao):
+                    medias_radar.append({"Macro Área": nome_secao, "Média": media_secao})
         
         df_radar = pd.DataFrame(medias_radar)
         
