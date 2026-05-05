@@ -1,4 +1,6 @@
 # app.py / sac.py
+import os
+import json
 import uuid
 import time
 from datetime import datetime, timedelta, timezone
@@ -42,10 +44,44 @@ def obter_hora_ceara():
     fuso = timezone(timedelta(hours=-3))
     return datetime.now(fuso).strftime("%Y-%m-%d %H:%M:%S")
 
-if "fase_transcricao" not in st.session_state:
-    st.session_state.fase_transcricao = "configuracao"
-if "aba_atual" not in st.session_state:
-    st.session_state.aba_atual = SECOES[0]
+# ==============================================================================
+# MOTOR DE AUTOSAVE E ESTADO
+# ==============================================================================
+if "fase_transcricao" not in st.session_state: st.session_state.fase_transcricao = "configuracao"
+if "aba_atual" not in st.session_state: st.session_state.aba_atual = SECOES[0]
+if "respostas" not in st.session_state: st.session_state.respostas = {}
+
+def obter_arquivo_rascunho():
+    """Gera um nome de arquivo isolado para cada Petiano"""
+    petiano = st.session_state.get("p_pet", "Padrao").replace(" ", "_")
+    return f"rascunho_{petiano}.json"
+
+def salvar_rascunho():
+    """Salva as respostas atuais no disco físico (Disparado a cada clique)"""
+    if st.session_state.get("fase_transcricao") == "perguntas":
+        try:
+            with open(obter_arquivo_rascunho(), "w", encoding="utf-8") as f:
+                json.dump(st.session_state.respostas, f)
+        except Exception:
+            pass
+
+def carregar_rascunho():
+    """Tenta puxar o rascunho anterior ao iniciar a transcrição"""
+    arquivo = obter_arquivo_rascunho()
+    if os.path.exists(arquivo):
+        try:
+            with open(arquivo, "r", encoding="utf-8") as f:
+                st.session_state.respostas = json.load(f)
+        except Exception:
+            pass
+
+def limpar_rascunho():
+    """Apaga o rascunho após salvar no banco de dados"""
+    st.session_state.respostas = {}
+    arquivo = obter_arquivo_rascunho()
+    if os.path.exists(arquivo):
+        try: os.remove(arquivo)
+        except Exception: pass
 
 # ==============================================================================
 # BARRA LATERAL 
@@ -54,7 +90,7 @@ with st.sidebar:
     st.markdown("### ⚙️ MÓDULOS")
     modo_operacao = st.radio("Selecione:", ["📝 Nova Transcrição", "✏️ Editar Registro", "📊 Painel Gerencial"], label_visibility="collapsed")
     st.markdown("---")
-    st.caption("A navegação global é feita por aqui. Para limpar dados, utilize os botões na tela principal.")
+    st.caption("A navegação global é feita por aqui.")
 
 # ==============================================================================
 # 1) NOVA TRANSCRIÇÃO 
@@ -92,7 +128,10 @@ if modo_operacao == "📝 Nova Transcrição":
                 st.session_state.p_sem = st.session_state.ident_sem
                 st.session_state.p_pet = st.session_state.ident_pet
                 st.session_state.p_curr = st.session_state.ident_curr
-                st.session_state.aba_atual = SECOES[0] # Reinicia o ciclo de abas
+                st.session_state.aba_atual = SECOES[0] 
+                
+                # Carrega o rascunho anterior desse petiano (se existir)
+                carregar_rascunho()
                 
                 with st.spinner(f"Preparando ambiente seguro para o discente {st.session_state.p_nome}..."):
                     time.sleep(1.5) 
@@ -117,25 +156,34 @@ if modo_operacao == "📝 Nova Transcrição":
             
         st.markdown("---")
 
-        # Barra de navegação horizontal (Simulando Tabs)
         idx_aba_atual = SECOES.index(st.session_state.aba_atual)
         aba_ativa = st.radio("Navegação:", SECOES, index=idx_aba_atual, horizontal=True, label_visibility="collapsed")
         
-        # Se o usuário clicar manualmente em outra aba na barra
         if aba_ativa != st.session_state.aba_atual:
             st.session_state.aba_atual = aba_ativa
             st.rerun()
         
+        # Callbacks que disparam o autosave sempre que houver clique/digitação
+        def cb_salvar_nota(id_):
+            st.session_state.respostas[f"nota_{id_}"] = st.session_state[f"wg_nota_{id_}"]
+            salvar_rascunho()
+
+        def cb_salvar_obs(id_):
+            st.session_state.respostas[f"obs_{id_}"] = st.session_state[f"wg_obs_{id_}"]
+            salvar_rascunho()
+
         def renderizar_pergunta_nativa(id_, titulo):
             with st.container():
                 st.markdown(f'<div class="pergunta-card"><div class="pergunta-texto">{ID_PARA_LABEL[id_]} — {titulo}</div></div>', unsafe_allow_html=True)
                 c1, c2 = st.columns([0.6, 0.4])
                 with c1:
-                    st.radio("Nota", NOTA_LABELS, horizontal=True, key=f"nota_{id_}", label_visibility="collapsed")
+                    val_nota = st.session_state.respostas.get(f"nota_{id_}", "N/A")
+                    idx_nota = NOTA_LABELS.index(val_nota) if val_nota in NOTA_LABELS else 0
+                    st.radio("Nota", NOTA_LABELS, index=idx_nota, horizontal=True, key=f"wg_nota_{id_}", on_change=cb_salvar_nota, args=(id_,), label_visibility="collapsed")
                 with c2:
-                    st.text_input("Transcrição de Obs.", placeholder="Comentários...", key=f"obs_{id_}", label_visibility="collapsed")
+                    val_obs = st.session_state.respostas.get(f"obs_{id_}", "")
+                    st.text_input("Transcrição de Obs.", value=val_obs, placeholder="Comentários...", key=f"wg_obs_{id_}", on_change=cb_salvar_obs, args=(id_,), label_visibility="collapsed")
 
-        # Mapeamento do conteúdo para cada página
         blocos_questoes = {
             SECOES[0]: ORDEM_QUESTOES[:8],
             SECOES[1]: ORDEM_QUESTOES[8:19],
@@ -145,7 +193,6 @@ if modo_operacao == "📝 Nova Transcrição":
             SECOES[5]: [ORDEM_QUESTOES[-1]]
         }
 
-        # Renderiza apenas as perguntas da página atual
         if st.session_state.aba_atual == SECOES[5]:
             st.warning("⚠️ Obrigatório preencher a Reflexão Final. Se estiver vazio no papel, digite 'EM BRANCO'.")
         
@@ -154,11 +201,8 @@ if modo_operacao == "📝 Nova Transcrição":
 
         st.markdown("---")
 
-        # ---------------------------------------------------------
-        # LÓGICA DE AVANÇAR OU SALVAR (RODAPÉ)
-        # ---------------------------------------------------------
+        # NAVEGAÇÃO E SALVAMENTO
         if st.session_state.aba_atual != SECOES[5]:
-            # Botão de próxima página se NÃO for a última aba
             col_vazia1, col_botao, col_vazia2 = st.columns([1, 2, 1])
             with col_botao:
                 prox_secao = SECOES[idx_aba_atual + 1]
@@ -166,22 +210,26 @@ if modo_operacao == "📝 Nova Transcrição":
                     st.session_state.aba_atual = prox_secao
                     st.rerun()
         else:
-            # Formulário Aberto se FOR a última aba (Reflexão)
             st.markdown("#### TRANSCRIÇÃO DAS RESPOSTAS ABERTAS")
-            txt_fortes = st.text_area("Pontos Fortes *", key="obs_fortes")
-            txt_fracos = st.text_area("Pontos a Desenvolver *", key="obs_fracos")
-            txt_prat   = st.text_area("Contribuição Prática", key="obs_prat")
-            txt_ex     = st.text_area("Exemplos de Aplicação", key="obs_ex")
-            txt_fut1   = st.text_area("Competências Futuras", key="obs_fut1")
-            txt_fut2   = st.text_area("Plano de Desenvolvimento", key="obs_fut2")
-            txt_final  = st.text_area("Comentários Finais *", key="obs_final")
+            
+            def cb_salvar_aberta(chave):
+                st.session_state.respostas[chave] = st.session_state[f"wg_{chave}"]
+                salvar_rascunho()
+
+            txt_fortes = st.text_area("Pontos Fortes *", value=st.session_state.respostas.get("obs_fortes", ""), key="wg_obs_fortes", on_change=cb_salvar_aberta, args=("obs_fortes",))
+            txt_fracos = st.text_area("Pontos a Desenvolver *", value=st.session_state.respostas.get("obs_fracos", ""), key="wg_obs_fracos", on_change=cb_salvar_aberta, args=("obs_fracos",))
+            txt_prat   = st.text_area("Contribuição Prática", value=st.session_state.respostas.get("obs_prat", ""), key="wg_obs_prat", on_change=cb_salvar_aberta, args=("obs_prat",))
+            txt_ex     = st.text_area("Exemplos de Aplicação", value=st.session_state.respostas.get("obs_ex", ""), key="wg_obs_ex", on_change=cb_salvar_aberta, args=("obs_ex",))
+            txt_fut1   = st.text_area("Competências Futuras", value=st.session_state.respostas.get("obs_fut1", ""), key="wg_obs_fut1", on_change=cb_salvar_aberta, args=("obs_fut1",))
+            txt_fut2   = st.text_area("Plano de Desenvolvimento", value=st.session_state.respostas.get("obs_fut2", ""), key="wg_obs_fut2", on_change=cb_salvar_aberta, args=("obs_fut2",))
+            txt_final  = st.text_area("Comentários Finais *", value=st.session_state.respostas.get("obs_final", ""), key="wg_obs_final", on_change=cb_salvar_aberta, args=("obs_final",))
 
             st.markdown("---")
             if st.button("💾 FINALIZAR E SALVAR REGISTRO", type="primary", use_container_width=True):
                 erros = []
-                if not txt_fortes: erros.append("Pontos Fortes")
-                if not txt_fracos: erros.append("Pontos a Desenvolver")
-                if not txt_final: erros.append("Comentários Finais")
+                if not st.session_state.respostas.get("obs_fortes", "").strip(): erros.append("Pontos Fortes")
+                if not st.session_state.respostas.get("obs_fracos", "").strip(): erros.append("Pontos a Desenvolver")
+                if not st.session_state.respostas.get("obs_final", "").strip(): erros.append("Comentários Finais")
 
                 if erros:
                     st.error(f"❌ IMPOSSÍVEL SALVAR. Faltam campos obrigatórios: {', '.join(erros)}")
@@ -194,24 +242,26 @@ if modo_operacao == "📝 Nova Transcrição":
                         "Semestre": st.session_state.p_sem,
                         "Curriculo": st.session_state.p_curr,
                         "Data_Registro": obter_hora_ceara(),
-                        "Autoavaliação: Pontos Fortes": txt_fortes.strip(),
-                        "Autoavaliação: Pontos a Desenvolver": txt_fracos.strip(),
-                        "Contribuição Prática": txt_prat.strip(),
-                        "Exemplos de Aplicação": txt_ex.strip(),
-                        "Competências Futuras": txt_fut1.strip(),
-                        "Plano de Desenvolvimento": txt_fut2.strip(),
-                        "Observações Finais": txt_final.strip(),
+                        "Autoavaliação: Pontos Fortes": st.session_state.respostas.get("obs_fortes", "").strip(),
+                        "Autoavaliação: Pontos a Desenvolver": st.session_state.respostas.get("obs_fracos", "").strip(),
+                        "Contribuição Prática": st.session_state.respostas.get("obs_prat", "").strip(),
+                        "Exemplos de Aplicação": st.session_state.respostas.get("obs_ex", "").strip(),
+                        "Competências Futuras": st.session_state.respostas.get("obs_fut1", "").strip(),
+                        "Plano de Desenvolvimento": st.session_state.respostas.get("obs_fut2", "").strip(),
+                        "Observações Finais": st.session_state.respostas.get("obs_final", "").strip(),
                     }
                     for id_, _ in ORDEM_QUESTOES:
-                        dados_salvar[id_] = st.session_state.get(f"nota_{id_}", "N/A")
-                        dados_salvar[f"Obs_{id_}"] = st.session_state.get(f"obs_{id_}", "")
+                        dados_salvar[id_] = st.session_state.respostas.get(f"nota_{id_}", "N/A")
+                        dados_salvar[f"Obs_{id_}"] = st.session_state.respostas.get(f"obs_{id_}", "")
                     
                     try:
                         inserir_registro(dados_salvar)
+                        limpar_rascunho() # Magia acontece aqui: apaga o json temporário
+                        
                         st.balloons()
                         st.success("✅ Transcrição salva com sucesso no banco de dados!")
                         
-                        # Limpa a memória e reseta o formulário inteiro
+                        # Reseta os dados temporários
                         st.session_state.clear() 
                         st.session_state.fase_transcricao = "configuracao"
                         st.session_state.aba_atual = SECOES[0]
